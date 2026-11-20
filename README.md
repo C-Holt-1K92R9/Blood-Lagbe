@@ -230,9 +230,9 @@ The `/find` map is a stylised SVG: displayed distances are real, but pin angles 
 
 ### Deploying to Vercel
 
-The Vercel deployment serves the Vite frontend and exposes the Express API through the catch-all function in `api/[...path].js`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), plus `RESEND_API_KEY` and `MAIL_FROM` if email delivery is required. Add variables to each environment you deploy to, then redeploy.
+The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), plus `RESEND_API_KEY` and `MAIL_FROM` if email delivery is required. Add variables to each environment you deploy to, then redeploy.
 
-After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
+Before using the app, run `npm run db:setup` once against the same database configured in Vercel. After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
 
 ## Privacy and Safety
 
