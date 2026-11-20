@@ -1,111 +1,270 @@
 # Blood Lagbe
 
-Find blood and plasma donors near you in minutes. Blood Lagbe connects families in Bangladesh with registered, available donors, and gives the community a public emergency board when nobody in the network matches. Always free for seekers.
+**A fast, community-focused blood and plasma donor finder for Bangladesh.**
 
-## Stack
+Blood Lagbe helps people find registered and available donors by blood group and location. Seekers can make immediate or scheduled requests, while a public emergency board provides another way to ask for help when no registered donor is available.
 
-- **Client:** React 19, Vite, Tailwind CSS 3, Phosphor icons, HashRouter
-- **API:** Express 5 running in the same process (`server/`)
-- **Database:** Neon Postgres (`server/schema.sql`)
-- **Geocoding:** OpenStreetMap Nominatim, with district centroids as a fallback
-- **Email:** Resend when `RESEND_API_KEY` is set, otherwise every message is recorded in `email_outbox`
+The project is free for seekers and designed to keep the search process simple: enter the need, verify the location, view eligible matches, and contact a donor directly or notify them by email.
 
-## Run it
+> [!IMPORTANT]
+> This project is a community support tool, not a medical or emergency service. For a life-threatening emergency in Bangladesh, call **999** first.
 
-```bash
-npm install
+## Features
 
-npm run db:setup     # create tables (safe to re-run)
-npm run db:seed      # optional demo donors + emergency posts
+- Search for blood or plasma donors in nearby locations
+- Filter by blood group, need type, timing, division, city, and address
+- Match within a fixed 10 km radius before checking the rest of the selected city
+- Respect blood and plasma donation waiting periods
+- Contact immediate matches directly by phone
+- Email scheduled requests to eligible donors
+- Register and manage a donor profile
+- Update availability and record the latest donation
+- Post and close public emergency requests
+- Use password-authenticated donor accounts with 30-day sessions
+- Run the React client and Express API together in development and production
 
-npm run dev          # API + Vite dev server on http://localhost:5173
-# or
-npm run build
-npm run preview      # production build + API on http://localhost:4173
+## How It Works
+
+1. A seeker selects the blood group, component, and whether the need is immediate or scheduled.
+2. The seeker provides contact details and a written address, with optional GPS coordinates.
+3. The server resolves the location using browser GPS or OpenStreetMap Nominatim.
+4. Eligible donors are grouped by:
+   - donors within 10 km, sorted by distance
+   - other available donors in the same city, sorted by distance
+5. Recent donors are excluded according to the donation interval:
+   - blood: 90 days
+   - plasma: 28 days
+6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and emailed to up to 25 matched donors.
+
+Scheduled `datetime-local` values are interpreted in **Asia/Dhaka (UTC+06:00)** so stored request times do not depend on the server timezone.
+
+## Public Emergency Board
+
+When no registered donor is available, anyone can post a public request containing the blood group, component, location, phone number, and optional note.
+
+The API generates a private close token for each post and stores it only in the browser that created the post. The close token is required to mark a request as fulfilled. Public phone numbers are not sufficient to close another person's post.
+
+## Technology Stack
+
+| Area | Technology |
+| --- | --- |
+| Frontend | React 19, React Router 7, Tailwind CSS 3 |
+| Build tool | Vite 8 |
+| UI icons | Phosphor Icons |
+| Backend | Express 5 |
+| Database | Neon Postgres |
+| Geocoding | OpenStreetMap Nominatim |
+| Email | Resend, with database-backed fallback |
+
+The client and API are served by the same Node.js process. PostgreSQL data and table definitions are managed through `server/schema.sql`.
+
+## Project Structure
+
+```text
+.
+├── public/                # Public static assets
+├── server/
+│   ├── lib/               # Authentication, geocoding, mail, and validation helpers
+│   ├── routes/            # Auth, search, and emergency API routes
+│   ├── schema.sql         # PostgreSQL schema
+│   ├── migrate.js         # Applies the database schema
+│   ├── seed.js            # Adds optional demo data
+│   └── index.js           # Express and Vite entry point
+├── shared/                # Shared project files
+└── src/
+    ├── components/        # Reusable UI components
+    ├── pages/             # Application pages
+    └── lib/               # Browser-side session helpers
 ```
 
-Copy `.env.example` to `.env` and fill in `DATABASE_URL` (pooled Neon connection string). `.env` is gitignored.
+## Getting Started
 
-### Demo accounts
+### Prerequisites
 
-`npm run db:seed` inserts 15 fictional donors across Dhaka and Chattogram (all `@example.com`) and three board posts. Every demo donor uses the password `donor1234`. Example: `arup.mondal@example.com` / `donor1234`.
+- Node.js 20 or newer
+- npm
+- A Neon Postgres database
 
-### Scripts
+### Installation
 
-| Script | What it does |
+```bash
+# Clone the repository
+git clone <repository-url>
+cd blood-lagbe
+
+# Install dependencies
+npm install
+
+# Create local environment variables
+cp .env.example .env
+```
+
+On Windows PowerShell, create `.env` with:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Set `DATABASE_URL` and, optionally, `DATABASE_URL_POOLED` in `.env`.
+
+### Database Setup
+
+```bash
+npm run db:setup
+npm run db:seed
+```
+
+`db:setup` safely re-applies `server/schema.sql`. `db:seed` is optional and only adds demo data when the donor table is empty.
+
+### Run Locally
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+### Production Build
+
+```bash
+npm run build
+npm run start
+```
+
+The production server runs on `http://localhost:4173` unless `PORT` is configured.
+
+## Environment Variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Neon pooled PostgreSQL connection string |
+| `DATABASE_URL_POOLED` | Optional | Pooled database connection used by database helpers |
+| `RESEND_API_KEY` | Optional | Enables Resend email delivery |
+| `MAIL_FROM` | Optional | Verified sender address shown in outgoing mail |
+| `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
+| `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
+
+Copy `.env.example` to `.env` and keep `.env` private. Without a Resend API key, mail is recorded in the `email_outbox` table and the interface reports it as queued.
+
+## Demo Accounts
+
+`npm run db:seed` adds 15 fictional donors across Dhaka and Chattogram. Demo emails use the `@example.com` domain.
+
+| Field | Value |
 | --- | --- |
-| `npm run dev` | Express + Vite middleware, port 5173 |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Serves `dist/` and the API on port 4173 |
-| `npm run start` | Same as preview, for a real host |
-| `npm run db:setup` | Applies `server/schema.sql` |
-| `npm run db:seed` | Inserts demo data if the donor table is empty |
-| `npm run lint` | Oxlint |
+| Example email | `arup.mondal@example.com` |
+| Password | `donor1234` |
 
-## Routes
+The seed also creates three public emergency board posts.
+
+## NPM Scripts
+
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Runs Express and Vite middleware on port 5173 |
+| `npm run build` | Creates the production client in `dist/` |
+| `npm run preview` | Builds and serves the production app on port 4173 |
+| `npm run start` | Serves the existing production build on port 4173 |
+| `npm run db:setup` | Applies `server/schema.sql` |
+| `npm run db:seed` | Inserts optional demo data |
+| `npm run lint` | Runs Oxlint |
+
+## Application Routes
 
 | Route | Page |
 | --- | --- |
-| `/` | Landing |
-| `/find` | Request form, 10 km search, donor results |
-| `/register` | Donor account creation |
-| `/login` | Donor sign in |
-| `/donor` | Donor profile, availability, location, requests received |
+| `/` | Landing page |
+| `/find` | Blood and plasma request form and donor results |
+| `/register` | Donor registration |
+| `/login` | Donor sign-in |
+| `/donor` | Donor profile and received requests |
 | `/emergency` | Public emergency board |
-| `/privacy`, `/terms` | Legal |
+| `/privacy` | Privacy policy |
+| `/terms` | Terms of use |
 
-## How matching works
-
-1. A seeker picks a blood group, blood or plasma, immediate or later, then enters their own name, phone, address, division, city, an optional email for a receipt and (optionally) GPS.
-2. The server resolves the search origin: GPS if given, otherwise Nominatim on the written address (trying the full address, then the city and division). If neither produces a real fix, the search is rejected rather than run from a coarse district centroid; donor registration can still fall back to the centroid for display purposes.
-3. The query returns eligible donors **within 10 km first**, then eligible donors **elsewhere in the same city**, each group sorted by distance.
-4. A donor is eligible only when they are marked available **and** past the waiting period: **90 days** after blood, **28 days** after plasma. Recent donors are hidden automatically. Calendar dates and scheduled times are handled in **Asia/Dhaka**.
-5. **Immediate:** results include the donor's phone number and a `tel:` call button. The requester also gets a receipt email if they shared an address.
-6. **Later:** the request is saved, every matched donor (up to 25) gets an email with the requester's name, phone, address and schedule, and the requester gets a receipt with the reference.
-
-Search radius is fixed at 10 km; there is no radius input. Scheduled times from the browser's `datetime-local` input are interpreted as Bangladesh time (`UTC+06:00`), so the stored instant does not depend on the server's timezone.
-
-## Emergency board
-
-The board is the fallback when no registered donor matches. Anyone can post a request with the patient's blood group, component, address, contact number and an optional note; the post is public and includes a call button. Creating a post also returns a private close token, stored only in the poster's browser. The "Your posts from this browser" list uses that token to close the post once the patient is helped. Phone numbers are public, so they are never sufficient to close someone else's post.
-
-## API
+## API Overview
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/health` | Database and mail mode |
-| `POST` | `/api/register` | Create donor account, starts a session |
-| `POST` | `/api/login` | Donor sign in |
-| `POST` | `/api/logout` | End session |
-| `GET` | `/api/me` | Current donor |
-| `PATCH` | `/api/me` | Update profile, availability, last donation, address |
-| `PATCH` | `/api/me/location` | Set GPS or re-geocode the saved address |
+| `GET` | `/api/health` | Database and mail status |
+| `POST` | `/api/register` | Create a donor account and session |
+| `POST` | `/api/login` | Sign in a donor |
+| `POST` | `/api/logout` | End the current session |
+| `GET` | `/api/me` | Get the current donor |
+| `PATCH` | `/api/me` | Update profile and availability |
+| `PATCH` | `/api/me/location` | Set GPS coordinates or re-geocode an address |
 | `POST` | `/api/me/password` | Change password |
-| `GET` | `/api/me/requests` | Requests emailed to this donor |
-| `DELETE` | `/api/me` | Delete the account |
-| `POST` | `/api/requests/search` | Search donors and create the request |
-| `GET` | `/api/requests/:publicId` | Request summary |
-| `GET` | `/api/emergency` | Open board posts |
-| `POST` | `/api/emergency` | Add a board post |
-| `POST` | `/api/emergency/:publicId/fulfil` | Close a post with its private close token |
+| `GET` | `/api/me/requests` | List requests sent to the donor |
+| `DELETE` | `/api/me` | Delete the donor account |
+| `POST` | `/api/requests/search` | Resolve a request and find eligible donors |
+| `GET` | `/api/requests/:publicId` | Get a public request summary |
+| `GET` | `/api/emergency` | List open emergency posts |
+| `POST` | `/api/emergency` | Create an emergency post |
+| `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
 
-Auth uses an httpOnly session cookie (`bl_session`, 30 days, SameSite=Lax). Passwords are hashed with scrypt. Sessions live in the `sessions` table, so signing out or changing a password revokes them.
+Donor authentication uses an httpOnly `bl_session` cookie with a 30-day lifetime and `SameSite=Lax`. Passwords are hashed with scrypt. Sessions are stored in PostgreSQL, so changing a password or signing out can revoke existing sessions.
 
-## Data model
+## Data Model
 
-`donors`, `sessions`, `blood_requests`, `request_notifications`, `email_outbox`, `emergency_posts`. See `server/schema.sql`.
+The main database tables are:
 
-## Deployment notes
+- `donors`
+- `sessions`
+- `blood_requests`
+- `request_notifications`
+- `email_outbox`
+- `emergency_posts`
 
-- Set `NODE_ENV=production` on an HTTPS host so the session cookie gets the `Secure` flag. Local HTTP preview intentionally runs without it.
-- Set `PORT` if the host does not provide one. The default is 4173 for `start`/`preview` and 5173 for dev.
-- Run `npm run db:setup` once against the production database.
-- Add `RESEND_API_KEY` and a verified `MAIL_FROM`. Without them, the API records messages in `email_outbox` and reports them as queued.
-- The map on `/find` is a stylised SVG. Distances are real; pin angles are illustrative so precise donor coordinates are never exposed.
+See [server/schema.sql](server/schema.sql) for constraints, indexes, and relations.
 
-## Known limits
+## Deployment
 
-- No email verification or OTP yet, so a donor can register with an address they do not own.
-- No forgotten-password flow yet; a signed-in donor can change a password from their page, which signs out other devices.
-- Emergency posts stay open until the poster closes them from the board; there is no automatic expiry. Closing requires the browser that created the post, because the close token is stored locally.
-- Receipt and donor emails need `RESEND_API_KEY` to leave the server. Without it they are recorded in `email_outbox` and the UI says so.
+1. Create a Neon Postgres database and enable SSL.
+2. Set the environment variables on the host.
+3. Run `npm run db:setup` against the production database.
+4. Run `npm run build`.
+5. Start the app with `npm start`.
+6. Set `NODE_ENV=production` when using HTTPS. The session cookie then receives the `Secure` flag.
+
+The `/find` map is a stylised SVG: displayed distances are real, but pin angles are illustrative and precise donor coordinates are not exposed.
+
+## Privacy and Safety
+
+- Public emergency posts expose phone numbers and selected location details.
+- Close tokens are browser-local secrets for managing emergency posts.
+- Donor coordinates are not publicly disclosed.
+- No email verification or OTP is currently implemented.
+- There is no forgotten-password flow. Signed-in users can change their password from the donor page.
+- Emergency posts remain open until closed by the browser that created them and do not currently expire automatically.
+
+Do not use the system to replace professional medical advice, hospital screening, blood-bank procedures, or emergency services.
+
+## Known Limitations
+
+- A registered donor's address may be inaccurate because email ownership is not currently verified.
+- Email delivery requires `RESEND_API_KEY` and a verified `MAIL_FROM`.
+- The search radius is fixed at 10 km and cannot be adjusted by seekers.
+- If geocoding fails, the server rejects the search instead of falling back to a coarse district centroid.
+- Demo data is fictional and must not be used for real medical requests.
+
+## Contributing
+
+Contributions are welcome. Before opening a pull request:
+
+1. Fork the repository and create a focused feature branch.
+2. Keep changes surgical and preserve existing behaviour.
+3. Run `npm run lint` and `npm run build`.
+4. Describe the problem, implementation, and verification steps clearly.
+5. Add or update focused tests when changing behaviour.
+
+Please avoid submitting sensitive personal or medical data as test fixtures.
+
+## Support
+
+For bugs or feature requests, open a GitHub issue with reproduction steps, screenshots or logs where useful, and the expected behaviour.
+
+For medical emergencies, contact local emergency services or a blood bank directly.
+
+## License
+
+No license is currently declared in this repository. Until a license is added, the repository's default copyright terms apply; please ask the maintainer before redistribution or commercial use.
