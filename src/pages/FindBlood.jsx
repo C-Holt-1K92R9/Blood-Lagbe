@@ -59,7 +59,7 @@ export default function FindBlood() {
   const selected = results.find((d) => d.id === selectedId) || null
 
   return (
-    <div className="min-h-screen bg-canvas pt-24 sm:pt-28">
+    <div className="min-h-screen bg-canvas pt-20 sm:pt-20">
       {/* emergency strip */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-brand-soft px-4 py-3">
@@ -74,7 +74,19 @@ export default function FindBlood() {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-12">
+      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="caption-3 uppercase tracking-widest text-brand">Emergency network</p>
+            <h1 className="heading-5 mt-1">Find a matching blood donor</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="caption-4 rounded-full border border-line bg-surface px-3 py-1.5 text-mute">Dhaka pilot</span>
+            <span className="caption-4 rounded-full border border-good/20 bg-good-soft px-3 py-1.5 text-good">Live availability</span>
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_280px]">
         {/* ------------- search panel ------------- */}
         <form onSubmit={search} className="h-fit rounded-2xl border border-line bg-raised p-5 shadow-[var(--shadow-card)] sm:p-6 lg:col-span-4">
           <p className="caption-3 uppercase tracking-widest text-brand">Emergency request</p>
@@ -212,8 +224,8 @@ export default function FindBlood() {
         </form>
 
         {/* ------------- map + results ------------- */}
-        <div className="flex flex-col gap-4 lg:col-span-8">
-          <div className="relative h-56 overflow-hidden rounded-2xl border border-line sm:h-72">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="dot-grid relative h-56 overflow-hidden rounded-2xl border border-line sm:h-72">
             <DonorMap donors={phase === 'done' ? results : []} selectedId={selectedId} onSelect={setSelectedId} />
           </div>
 
@@ -355,6 +367,51 @@ export default function FindBlood() {
               )}
             </div>
           )}
+        </div>
+
+        <aside className="h-fit rounded-2xl border border-line bg-raised shadow-[var(--shadow-card)] xl:sticky xl:top-20">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <p className="caption-3 uppercase tracking-wider text-mute">Current request</p>
+            <span className="caption-5 rounded-full bg-brand-soft px-2 py-1 font-mono text-brand">
+              {phase === 'done' ? 'Searching' : 'Ready'}
+            </span>
+          </div>
+          <div className="p-4">
+            <p className="title-4">{group ? `${group} blood needed` : 'Choose a blood group'}</p>
+            <p className="caption-2 mt-1 text-mute">
+              {component} · within {radius} km
+            </p>
+
+            <dl className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-line bg-surface p-3">
+                <dt className="caption-5 text-faint">Matches</dt>
+                <dd className="font-mono text-lg font-semibold text-strong">{phase === 'done' ? results.length : '—'}</dd>
+              </div>
+              <div className="rounded-xl border border-line bg-surface p-3">
+                <dt className="caption-5 text-faint">Available</dt>
+                <dd className="font-mono text-lg font-semibold text-good">
+                  {phase === 'done' ? results.filter((d) => d.available).length : '—'}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-4 rounded-xl border border-brand/15 bg-brand-soft p-3">
+              <p className="caption-3 text-brand">Response tips</p>
+              <ul className="mt-2 space-y-2 caption-5 text-mute">
+                <li>Call only donors marked available.</li>
+                <li>Confirm hospital and blood component.</li>
+                <li>Use request blast if none respond.</li>
+              </ul>
+            </div>
+
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="caption-4 text-faint">Emergency support</p>
+              <a href="tel:999" className="button-sm mt-2 flex h-10 items-center justify-center rounded-xl border border-line bg-surface text-strong transition-colors hover:border-brand hover:text-brand">
+                Call ambulance · 999
+              </a>
+            </div>
+          </div>
+        </aside>
         </div>
       </div>
 

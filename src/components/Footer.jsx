@@ -1,8 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Siren } from '@phosphor-icons/react'
 import Logo from './Logo.jsx'
 
 export default function Footer() {
+  const { pathname } = useLocation()
+
+  if (pathname === '/') return null
+
   return (
     <footer className="border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8">
@@ -29,7 +33,6 @@ export default function Footer() {
             <ul className="mt-3 space-y-3">
               <li><Link to="/find" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Find blood</Link></li>
               <li><Link to="/register" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Become a donor</Link></li>
-              <li><Link to="/#faq" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">FAQ</Link></li>
             </ul>
           </nav>
 
