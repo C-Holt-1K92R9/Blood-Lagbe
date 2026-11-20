@@ -1,40 +1,56 @@
-/* Stylized SVG map of central Dhaka for the /find screen.
-   Positions are illustrative, not geographic. Google Maps integration
-   plugs in at the same slot when an API key is available. */
+/* Stylised map for the /find screen. Distances and grouping are real; pin
+   angles are illustrative so precise donor coordinates are never exposed.
+   Swap this whole component for a tile map when a map key is available. */
 
-const COORDS = {
-  'bl-1042': { x: 425, y: 185 },
-  'bl-0987': { x: 245, y: 330 },
-  'bl-0231': { x: 380, y: 268 },
-  'bl-0319': { x: 330, y: 372 },
-  'bl-1154': { x: 300, y: 148 },
-  'bl-0764': { x: 455, y: 66 },
-  'bl-0508': { x: 252, y: 292 },
-  'bl-0411': { x: 214, y: 244 },
-  'bl-0296': { x: 68, y: 322 },
-  'bl-0873': { x: 205, y: 158 },
+const W = 560
+const H = 420
+const CX = 276
+const CY = 210
+const RADIUS_PX = 120 // one 10 km search radius
+
+function angleFor(id) {
+  let hash = 0
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  }
+  return ((hash % 360) * Math.PI) / 180
 }
 
-const YOU = { x: 276, y: 232 }
+export default function DonorMap({ donors = [], selectedId, onSelect }) {
+  const points = donors.map((d) => {
+    const angle = angleFor(String(d.id))
+    const ratio = Math.min(Number(d.distanceKm || 0) / 10, 1.35)
+    return {
+      donor: d,
+      x: CX + Math.cos(angle) * ratio * RADIUS_PX,
+      y: CY + Math.sin(angle) * ratio * RADIUS_PX,
+    }
+  })
 
-export default function DonorMap({ donors, selectedId, onSelect }) {
-  const selected = donors.find((d) => d.id === selectedId)
-  const sel = selected ? COORDS[selected.id] : null
+  const sel = points.find((p) => p.donor.id === selectedId)
 
   return (
     <svg
-      viewBox="0 0 560 420"
+      viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label="Map of donors near Dhanmondi"
+      aria-label={
+        donors.length === 0
+          ? 'Map placeholder, no donors searched yet'
+          : `Map of ${donors.length} matching donors around your location`
+      }
       className="h-full w-full"
       preserveAspectRatio="xMidYMid slice"
     >
-      {/* base */}
-      <rect x="0" y="0" width="560" height="420" fill="var(--raised-2)" />
+      <rect x="0" y="0" width={W} height={H} fill="var(--raised-2)" />
 
       {/* river: the Buriganga to the south */}
       <path d="M0 0 H96 C 120 90, 78 170, 104 250 C 126 322, 92 380, 112 420 H0 Z" fill="rgba(96, 165, 250, 0.16)" />
-      <path d="M96 0 C 120 90, 78 170, 104 250 C 126 322, 92 380, 112 420" stroke="rgba(96, 165, 250, 0.35)" strokeWidth="1.5" fill="none" />
+      <path
+        d="M96 0 C 120 90, 78 170, 104 250 C 126 322, 92 380, 112 420"
+        stroke="rgba(96, 165, 250, 0.35)"
+        strokeWidth="1.5"
+        fill="none"
+      />
 
       {/* arterial roads */}
       <g stroke="var(--faint)" strokeOpacity="0.55" strokeWidth="5" strokeLinecap="round" opacity="0.55">
@@ -42,7 +58,6 @@ export default function DonorMap({ donors, selectedId, onSelect }) {
         <path d="M250 420 L 316 214 L 420 0" fill="none" />
         <path d="M110 330 L 380 268 L 560 260" fill="none" />
       </g>
-      {/* minor streets */}
       <g stroke="var(--line)" strokeWidth="2">
         <path d="M150 160 H560" />
         <path d="M150 240 H560" />
@@ -52,18 +67,27 @@ export default function DonorMap({ donors, selectedId, onSelect }) {
         <path d="M420 160 L 460 420" />
       </g>
 
-      {/* park blocks */}
       <rect x="330" y="180" width="46" height="26" rx="6" fill="var(--good-soft)" />
       <rect x="150" y="282" width="34" height="22" rx="6" fill="var(--good-soft)" />
 
-      {/* search radius around you */}
-      <circle cx={YOU.x} cy={YOU.y} r="120" fill="var(--brand-soft)" stroke="var(--brand)" strokeOpacity="0.35" strokeDasharray="5 6" />
+      {/* 10 km search radius */}
+      <circle
+        cx={CX}
+        cy={CY}
+        r={RADIUS_PX}
+        fill="var(--brand-soft)"
+        stroke="var(--brand)"
+        strokeOpacity="0.35"
+        strokeDasharray="5 6"
+      />
+      <text x={CX + 6} y={CY - RADIUS_PX + 16} fontSize="10" fill="var(--mute)" fontFamily="'Geist Mono', monospace">
+        10 km
+      </text>
 
-      {/* dashed line to selected donor */}
       {sel && (
         <line
-          x1={YOU.x}
-          y1={YOU.y}
+          x1={CX}
+          y1={CY}
           x2={sel.x}
           y2={sel.y}
           stroke="var(--brand)"
@@ -73,35 +97,34 @@ export default function DonorMap({ donors, selectedId, onSelect }) {
         />
       )}
 
-      {/* you marker */}
-      <g transform={`translate(${YOU.x} ${YOU.y})`}>
+      {/* your position */}
+      <g transform={`translate(${CX} ${CY})`}>
         <circle r="17" fill="var(--brand-soft)" className="map-pulse" />
         <circle r="9" fill="var(--brand-solid)" stroke="var(--bg)" strokeWidth="3" />
       </g>
 
-      {/* donor pins */}
-      {donors.map((d) => {
-        const c = COORDS[d.id]
-        if (!c) return null
-        const isSel = d.id === selectedId
-        const fill = !d.available ? 'var(--faint)' : isSel ? 'var(--brand-solid)' : 'var(--brand)'
+      {points.map(({ donor, x, y }) => {
+        const isSel = donor.id === selectedId
+        const fill = donor.withinRadius ? 'var(--brand-solid)' : 'var(--mute)'
         return (
           <g
-            key={d.id}
-            transform={`translate(${c.x} ${c.y})`}
-            onClick={() => onSelect(d.id)}
+            key={donor.id}
+            transform={`translate(${x} ${y})`}
+            onClick={() => onSelect(donor.id)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                onSelect(d.id)
+                onSelect(donor.id)
               }
             }}
             tabIndex={0}
             role="button"
-            aria-label={`Donor ${d.name}, group ${d.group}, ${d.km} km away${d.available ? '' : ', currently unavailable'}`}
+            aria-label={`${donor.name}, ${donor.bloodGroup}, ${
+              donor.withinRadius ? `${donor.distanceKm} km away` : 'elsewhere in the same city'
+            }`}
             className="cursor-pointer focus:outline-none"
           >
-            <circle r={isSel ? 15 : 11} fill={fill} fillOpacity={d.available ? 0.22 : 0.14} />
+            <circle r={isSel ? 15 : 11} fill={fill} fillOpacity="0.22" />
             <path
               d="M0 -7.5c-3.4 0-5.6 2.3-5.6 5.1 0 3.8 5.6 8.4 5.6 8.4s5.6-4.6 5.6-8.4C5.6-5.2 3.4-7.5 0-7.5z"
               fill={fill}
@@ -113,19 +136,13 @@ export default function DonorMap({ donors, selectedId, onSelect }) {
         )
       })}
 
-      {/* zoom controls (decorative, disabled state) */}
-      <g aria-hidden="true" opacity="0.9">
-        <rect x="500" y="330" width="36" height="36" rx="10" fill="var(--raised)" stroke="var(--line)" />
-        <path d="M510 348h16" stroke="var(--mute)" strokeWidth="2" strokeLinecap="round" />
-        <rect x="500" y="376" width="36" height="36" rx="10" fill="var(--raised)" stroke="var(--line)" />
-        <path d="M510 394h16" stroke="var(--mute)" strokeWidth="2" strokeLinecap="round" />
-      </g>
-
       {/* legend */}
       <g transform="translate(16 14)" fontFamily="'Geist Variable', sans-serif" fontSize="11" fill="var(--mute)">
-        <rect x="-8" y="-11" width="158" height="25" rx="7" fill="var(--raised)" fillOpacity="0.85" stroke="var(--line)" />
+        <rect x="-8" y="-11" width="214" height="46" rx="7" fill="var(--raised)" fillOpacity="0.9" stroke="var(--line)" />
         <circle cx="4" cy="1.5" r="4" fill="var(--brand-solid)" />
-        <text x="14" y="5">Available donor</text>
+        <text x="14" y="5">Within 10 km</text>
+        <circle cx="4" cy="20" r="4" fill="var(--mute)" />
+        <text x="14" y="24">Same city, further away</text>
       </g>
     </svg>
   )

@@ -32,7 +32,9 @@ export default function Footer() {
             <p className="caption-3 uppercase tracking-wider text-faint">Product</p>
             <ul className="mt-3 space-y-3">
               <li><Link to="/find" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Find blood</Link></li>
+              <li><Link to="/emergency" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Emergency board</Link></li>
               <li><Link to="/register" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Become a donor</Link></li>
+              <li><Link to="/login" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Donor sign in</Link></li>
             </ul>
           </nav>
 
@@ -56,7 +58,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="caption-5 text-faint">© 2026 Blood Lagbe. Sample prototype, names and figures are illustrative.</p>
+          <p className="caption-5 text-faint">© 2026 Blood Lagbe. Dhaka pilot, Bangladesh.</p>
           <p className="caption-5 text-faint">Dhaka pilot · 14 districts</p>
         </div>
       </div>

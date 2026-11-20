@@ -1,26 +1,44 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { CheckCircle, Drop, ShieldCheck, HandHeart, Clock } from '@phosphor-icons/react'
-import { BLOOD_GROUPS, COMPONENTS } from '../data.js'
+import { Link, useNavigate } from 'react-router-dom'
+import { CheckCircle, Clock, Drop, HandHeart, ShieldCheck } from '@phosphor-icons/react'
+import { BLOOD_GROUPS, DONATION_TYPES } from '../data.js'
+import { useAuth } from '../lib/session.jsx'
+import { fieldErrors } from '../lib/api.js'
+import { isBdMobile } from '../lib/phone.js'
+import {
+  DivisionCityFields,
+  FormAlert,
+  LocationField,
+  TextAreaField,
+  TextField,
+  SelectField,
+  todayIso,
+} from '../components/Form.jsx'
 
-const inputClass =
-  'body-3 h-11 w-full rounded-xl border border-line bg-surface px-3 placeholder:text-faint focus:border-brand focus:outline-none'
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 export default function RegisterDonor() {
+  const navigate = useNavigate()
+  const { register } = useAuth()
+
   const [form, setForm] = useState({
     name: '',
+    email: '',
     phone: '',
-    group: '',
-    lastDonation: '',
-    area: '',
-    postcode: '',
-    components: ['Whole blood'],
+    password: '',
+    bloodGroup: '',
+    donationType: 'blood',
+    lastDonated: '',
+    division: '',
+    city: '',
+    addressText: '',
     available: true,
     consent: false,
   })
+  const [coords, setCoords] = useState(null)
   const [errors, setErrors] = useState({})
-  const [phase, setPhase] = useState('idle') // idle | submitting | done
-  const [reference, setReference] = useState('')
+  const [serverError, setServerError] = useState('')
+  const [phase, setPhase] = useState('idle')
 
   const set = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -28,86 +46,69 @@ export default function RegisterDonor() {
     setErrors((err) => ({ ...err, [key]: undefined }))
   }
 
-  const toggleComponent = (c) =>
-    setForm((f) => ({
-      ...f,
-      components: f.components.includes(c) ? f.components.filter((x) => x !== c) : [...f.components, c],
-    }))
-
   const validate = () => {
     const next = {}
     if (form.name.trim().length < 2) next.name = 'Enter your full name.'
-    if (!/^01[3-9]\d{8}$/.test(form.phone.trim())) next.phone = 'Enter a 11 digit Bangladeshi mobile number starting 01, e.g. 01712 345678.'
-    if (!form.group) next.group = 'Pick your blood group.'
-    if (form.postcode && !/^\d{4}$/.test(form.postcode.trim())) next.postcode = 'Post code must be 4 digits, e.g. 1205.'
-    if (form.components.length === 0) next.components = 'Pick at least one donation type.'
+    if (!EMAIL_RE.test(form.email.trim())) next.email = 'Enter a valid email address.'
+    if (!isBdMobile(form.phone)) {
+      next.phone = 'Enter a Bangladeshi mobile number, e.g. 01712 345678 or +8801712 345678.'
+    }
+    if (form.password.length < 8) next.password = 'Use at least 8 characters.'
+    if (!form.bloodGroup) next.bloodGroup = 'Pick your blood group.'
+    if (!form.division) next.division = 'Pick your division.'
+    if (!form.city) next.city = 'Pick your city or district.'
+    if (form.addressText.trim().length < 8) next.addressText = 'Write where you usually live, at least a street or area.'
     if (!form.consent) next.consent = 'We need your consent to store your details.'
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     if (!validate()) return
     setPhase('submitting')
-    window.setTimeout(() => {
-      setReference(`BLG-2026-${String(Math.floor(10000 + Math.random() * 89999))}`)
-      setPhase('done')
+    setServerError('')
+    try {
+      await register({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        bloodGroup: form.bloodGroup,
+        donationType: form.donationType,
+        lastDonated: form.lastDonated || null,
+        division: form.division,
+        city: form.city,
+        addressText: form.addressText,
+        available: form.available,
+        consent: form.consent,
+        lat: coords?.lat,
+        lng: coords?.lng,
+      })
+      navigate('/donor?welcome=1', { replace: true })
+    } catch (err) {
+      const mapped = fieldErrors(err)
+      setErrors(mapped)
+      if (Object.keys(mapped).length === 0) setServerError(err.message)
+      setPhase('idle')
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 750)
-  }
-
-  if (phase === 'done') {
-    return (
-      <div className="min-h-screen bg-canvas pt-28 sm:pt-36">
-        <div className="mx-auto max-w-xl px-6 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-good-soft">
-            <CheckCircle size={36} weight="fill" className="text-good" aria-hidden="true" />
-          </div>
-          <h1 className="heading-4 mt-6">You are on the donor list, {form.name.split(' ')[0]}</h1>
-          <p className="body-3 mt-3 text-mute">
-            Your donor profile is saved as <span className="font-mono text-strong">{reference}</span>. When someone
-            nearby needs {form.group}, we will send you an SMS. You can flip your availability any time from your
-            profile.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              to="/find"
-              className="button-md inline-flex items-center gap-2 rounded-2xl bg-brand-solid px-6 py-3 text-onbrand transition-all duration-300 hover:bg-brand-solid-hover active:scale-[0.98]"
-            >
-              See how seekers search
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setForm({ name: '', phone: '', group: '', lastDonation: '', area: '', postcode: '', components: ['Whole blood'], available: true, consent: false })
-                setPhase('idle')
-              }}
-              className="button-md rounded-2xl border border-line px-6 py-3 text-strong transition-colors duration-300 hover:bg-lifted"
-            >
-              Add another donor
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+    }
   }
 
   return (
     <div className="min-h-screen bg-canvas pt-24 sm:pt-28">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-12">
-        {/* left rail */}
         <div className="lg:col-span-5">
           <p className="caption-3 uppercase tracking-widest text-brand">Become a donor</p>
           <h1 className="heading-3 mt-3 max-w-hero">One hour of your time can carry someone through the night</h1>
           <p className="body-3 mt-4 max-w-hero text-mute">
-            Registering takes about two minutes. When a patient near you needs your blood group, you get one SMS with a
-            hospital, a contact and a time slot. Decline if you cannot make it, no questions asked.
+            Create your donor account once, then keep it current. When a patient near you needs your blood group, we
+            email you the hospital, the contact number and the time. Decline if you cannot make it, no questions asked.
           </p>
 
           <ul className="mt-8 space-y-5">
             {[
-              { icon: ShieldCheck, text: 'Your number stays hidden until a seeker sends a request you accept.' },
+              { icon: ShieldCheck, text: 'You control your pin and your availability. Update either from your own page.' },
               { icon: HandHeart, text: 'Donation is voluntary. You are never paid, and no one may pay you.' },
               { icon: Clock, text: 'Whole blood takes 8 to 10 minutes after registration and screening.' },
             ].map(({ icon: Icon, text }) => (
@@ -125,98 +126,187 @@ export default function RegisterDonor() {
             <ul className="body-6 mt-3 list-disc space-y-1.5 pl-5 text-mute">
               <li>Age 18 to 65, weight 45 kg or more</li>
               <li>At least 90 days since your last whole blood donation</li>
+              <li>At least 28 days since your last plasma donation</li>
               <li>No fever, infection or antibiotics today</li>
               <li>Hemoglobin checked on the day at the donation site</li>
             </ul>
             <p className="caption-5 mt-3 text-faint">The doctor at the hospital makes the final call, not this list.</p>
           </div>
+
+          <p className="caption-2 mt-8 text-mute">
+            Already have a donor account?{' '}
+            <Link to="/login" className="font-medium text-strong underline decoration-line underline-offset-4 hover:decoration-brand">
+              Sign in
+            </Link>
+          </p>
         </div>
 
-        {/* form */}
-        <form onSubmit={submit} noValidate className="h-fit rounded-2xl border border-line bg-raised p-5 shadow-[var(--shadow-card)] sm:p-6 lg:col-span-7">
+        <form
+          onSubmit={submit}
+          noValidate
+          className="h-fit rounded-2xl border border-line bg-raised p-5 shadow-[var(--shadow-card)] sm:p-6 lg:col-span-7"
+        >
           <p className="title-2">Donor registration</p>
-          <p className="caption-2 mt-1 text-mute">Fields marked * are required. We validate everything before you can submit.</p>
+          <p className="caption-2 mt-1 text-mute">
+            Fields marked * are required. You can change everything later from your donor page.
+          </p>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label htmlFor="name" className="title-4 mb-2 block">Full name *</label>
-              <input id="name" type="text" autoComplete="name" value={form.name} onChange={set('name')} aria-invalid={!!errors.name} className={inputClass} placeholder="e.g. Soumyajit Roy" />
-              {errors.name && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.name}</p>}
+          <div className="mt-6 space-y-4">
+            <FormAlert>{serverError}</FormAlert>
+
+            <p className="caption-3 uppercase tracking-wider text-faint">Your account</p>
+
+            <TextField
+              id="name"
+              label="Full name"
+              required
+              autoComplete="name"
+              value={form.name}
+              onChange={set('name')}
+              error={errors.name}
+              placeholder="e.g. Soumyajit Roy"
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                id="email"
+                label="Email"
+                type="email"
+                required
+                autoComplete="email"
+                value={form.email}
+                onChange={set('email')}
+                error={errors.email}
+                placeholder="name@example.com"
+                hint="Requests and account notices arrive here."
+              />
+              <TextField
+                id="phone"
+                label="Mobile number"
+                type="tel"
+                inputMode="numeric"
+                required
+                autoComplete="tel-national"
+                value={form.phone}
+                onChange={set('phone')}
+                error={errors.phone}
+                placeholder="01712 345678"
+                className="font-mono"
+                hint="Shown only on an immediate request so a family can call you."
+              />
             </div>
 
-            <div>
-              <label htmlFor="phone" className="title-4 mb-2 block">Mobile number *</label>
-              <div className="flex">
-                <span className="flex h-11 items-center rounded-l-xl border border-r-0 border-line bg-lifted px-3 font-mono text-sm text-mute">+880</span>
-                <input
-                  id="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  value={form.phone}
-                  onChange={set('phone')}
-                  aria-invalid={!!errors.phone}
-                  className={`${inputClass} rounded-l-none font-mono`}
-                  placeholder="01712 345678"
-                />
-              </div>
-              {errors.phone && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.phone}</p>}
+            <TextField
+              id="password"
+              label="Password"
+              type="password"
+              required
+              autoComplete="new-password"
+              value={form.password}
+              onChange={set('password')}
+              error={errors.password}
+              placeholder="At least 8 characters"
+            />
+
+            <div className="border-t border-line pt-4">
+              <p className="caption-3 uppercase tracking-wider text-faint">What you can donate</p>
             </div>
 
-            <div>
-              <label htmlFor="group" className="title-4 mb-2 block">Blood group *</label>
-              <select id="group" value={form.group} onChange={set('group')} aria-invalid={!!errors.group} className={`${inputClass} appearance-none`}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                id="bloodGroup"
+                label="Blood group"
+                required
+                value={form.bloodGroup}
+                onChange={set('bloodGroup')}
+                error={errors.bloodGroup}
+              >
                 <option value="">Select group</option>
                 {BLOOD_GROUPS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
                 ))}
-              </select>
-              {errors.group && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.group}</p>}
+              </SelectField>
+
+              <TextField
+                id="lastDonated"
+                label="Last donation"
+                type="date"
+                max={todayIso()}
+                value={form.lastDonated}
+                onChange={set('lastDonated')}
+                error={errors.lastDonated}
+                hint="Optional. Leave blank if you have never donated."
+              />
             </div>
 
-            <div>
-              <label htmlFor="lastDonation" className="title-4 mb-2 block">Last donation <span className="text-faint">(optional)</span></label>
-              <input id="lastDonation" type="month" max="2026-11" value={form.lastDonation} onChange={set('lastDonation')} className={inputClass} />
-            </div>
-
-            <div>
-              <label htmlFor="postcode" className="title-4 mb-2 block">Post code</label>
-              <input id="postcode" type="text" inputMode="numeric" value={form.postcode} onChange={set('postcode')} aria-invalid={!!errors.postcode} className={`${inputClass} font-mono`} placeholder="1205" />
-              {errors.postcode && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.postcode}</p>}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="area" className="title-4 mb-2 block">Area or locality</label>
-              <input id="area" type="text" value={form.area} onChange={set('area')} className={inputClass} placeholder="e.g. Dhanmondi, Dhaka" />
-            </div>
-
-            <fieldset className="sm:col-span-2">
-              <legend className="title-4 mb-2">I can donate</legend>
-              <div className="flex flex-wrap gap-2">
-                {COMPONENTS.map((c) => {
-                  const active = form.components.includes(c)
+            <fieldset>
+              <legend className="title-4 mb-2">I donate</legend>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Donation type">
+                {DONATION_TYPES.map((type) => {
+                  const active = form.donationType === type.value
                   return (
                     <button
-                      key={c}
+                      key={type.value}
                       type="button"
-                      onClick={() => toggleComponent(c)}
-                      aria-pressed={active}
-                      className={`button-sm rounded-lg border px-4 py-2 transition-all duration-300 ease-out active:scale-[0.97] ${
-                        active ? 'border-brand-solid bg-brand-soft text-brand-hover' : 'border-line bg-surface text-mute hover:text-strong'
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setForm((f) => ({ ...f, donationType: type.value }))}
+                      className={`button-sm rounded-xl border px-4 py-3 transition-all duration-300 ease-out active:scale-[0.98] ${
+                        active
+                          ? 'border-brand-solid bg-brand-soft text-brand-hover'
+                          : 'border-line bg-surface text-mute hover:text-strong'
                       }`}
                     >
-                      {c}
+                      {type.label}
                     </button>
                   )
                 })}
               </div>
-              {errors.components && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.components}</p>}
             </fieldset>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface px-4 py-3 sm:col-span-2">
+            <div className="border-t border-line pt-4">
+              <p className="caption-3 uppercase tracking-wider text-faint">Where you usually live</p>
+            </div>
+
+            <DivisionCityFields
+              division={form.division}
+              city={form.city}
+              onDivision={(value) => {
+                setForm((f) => ({ ...f, division: value, city: '' }))
+                setErrors((err) => ({ ...err, division: undefined, city: undefined }))
+              }}
+              onCity={(value) => {
+                setForm((f) => ({ ...f, city: value }))
+                setErrors((err) => ({ ...err, city: undefined }))
+              }}
+              errors={errors}
+            />
+
+            <TextAreaField
+              id="addressText"
+              label="Home address in writing"
+              required
+              rows={2}
+              value={form.addressText}
+              onChange={set('addressText')}
+              error={errors.addressText}
+              placeholder="e.g. Road 8, Dhanmondi, near Jigatola bus stand, Dhaka"
+              hint="Street, area and a landmark help us place you accurately on the map."
+            />
+
+            <LocationField
+              value={coords}
+              onChange={setCoords}
+              label="Current GPS location"
+              hint="Optional but preferred. If you share it, we use this pin instead of guessing from your address. Otherwise we look up your written address on OpenStreetMap."
+            />
+
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface px-4 py-3">
               <div>
                 <p className="title-4">Available to donate right now</p>
-                <p className="caption-5 text-faint">Flip this off when you travel or finish a donation.</p>
+                <p className="caption-5 text-faint">Flip this off when you travel, fall ill or finish a donation.</p>
               </div>
               <button
                 type="button"
@@ -224,32 +314,44 @@ export default function RegisterDonor() {
                 aria-checked={form.available}
                 aria-label="Available to donate right now"
                 onClick={() => setForm((f) => ({ ...f, available: !f.available }))}
-                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-300 ease-out ${form.available ? 'bg-good' : 'bg-raised-2'}`}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-300 ease-out ${
+                  form.available ? 'bg-good' : 'bg-raised-2'
+                }`}
               >
                 <span
-                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${form.available ? 'left-6' : 'left-1'}`}
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    form.available ? 'left-6' : 'left-1'
+                  }`}
                 />
               </button>
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4">
                 <input
                   type="checkbox"
                   checked={form.consent}
                   onChange={set('consent')}
-                  aria-invalid={!!errors.consent}
+                  aria-invalid={errors.consent ? 'true' : undefined}
                   className="mt-0.5 h-5 w-5 accent-[#d92d20]"
                 />
                 <span className="body-6 text-mute">
                   I agree to the{' '}
-                  <Link to="/terms" className="font-medium text-strong underline decoration-line underline-offset-4">terms of use</Link>{' '}
+                  <Link to="/terms" className="font-medium text-strong underline decoration-line underline-offset-4">
+                    terms of use
+                  </Link>{' '}
                   and{' '}
-                  <Link to="/privacy" className="font-medium text-strong underline decoration-line underline-offset-4">privacy policy</Link>,
-                  including storing my blood group, area and phone number to connect me with seekers.
+                  <Link to="/privacy" className="font-medium text-strong underline decoration-line underline-offset-4">
+                    privacy policy
+                  </Link>
+                  , including storing my blood group, location and contact details to connect me with seekers.
                 </span>
               </label>
-              {errors.consent && <p className="caption-2 mt-1.5 text-brand" role="alert">{errors.consent}</p>}
+              {errors.consent && (
+                <p className="caption-2 mt-1.5 text-brand" role="alert">
+                  {errors.consent}
+                </p>
+              )}
             </div>
           </div>
 
@@ -259,8 +361,13 @@ export default function RegisterDonor() {
             className="button-md mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand-solid text-onbrand transition-all duration-300 ease-out hover:bg-brand-solid-hover active:scale-[0.98] disabled:opacity-70"
           >
             <Drop size={19} weight="fill" aria-hidden="true" />
-            {phase === 'submitting' ? 'Creating your donor profile…' : 'Register as donor'}
+            {phase === 'submitting' ? 'Creating your donor account…' : 'Create donor account'}
           </button>
+
+          <p className="caption-5 mt-3 text-center text-faint">
+            <CheckCircle size={13} className="mr-1 inline text-good" aria-hidden="true" />
+            Your profile stays hidden while you are not eligible to donate.
+          </p>
         </form>
       </div>
     </div>

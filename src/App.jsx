@@ -1,40 +1,66 @@
 import { useEffect } from 'react'
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { AuthProvider } from './lib/session.jsx'
 import Nav from './components/Nav.jsx'
 import Footer from './components/Footer.jsx'
 import Landing from './pages/Landing.jsx'
 import FindBlood from './pages/FindBlood.jsx'
 import RegisterDonor from './pages/RegisterDonor.jsx'
+import Login from './pages/Login.jsx'
+import DonorDashboard from './pages/DonorDashboard.jsx'
+import Emergency from './pages/Emergency.jsx'
 import { Privacy, Terms } from './pages/Legal.jsx'
 import NotFound from './pages/NotFound.jsx'
 
+const TITLES = {
+  '/': 'Blood Lagbe | Find blood donors near you in minutes',
+  '/find': 'Find a blood donor | Blood Lagbe',
+  '/register': 'Become a blood or plasma donor | Blood Lagbe',
+  '/login': 'Donor sign in | Blood Lagbe',
+  '/donor': 'Your donor page | Blood Lagbe',
+  '/emergency': 'Emergency blood board | Blood Lagbe',
+  '/privacy': 'Privacy policy | Blood Lagbe',
+  '/terms': 'Terms of use | Blood Lagbe',
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation()
+
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
+
+  useEffect(() => {
+    document.title = TITLES[pathname] || 'Page not found | Blood Lagbe'
+  }, [pathname])
+
   return null
 }
 
 export default function App() {
   return (
-    <HashRouter>
-      <ScrollToTop />
-      <a href="#main" className="skip-link">
-        Skip to content
-      </a>
-      <Nav />
-      <main id="main">
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/find" element={<FindBlood />} />
-          <Route path="/register" element={<RegisterDonor />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-      <Footer />
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <ScrollToTop />
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        <Nav />
+        <main id="main">
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/find" element={<FindBlood />} />
+            <Route path="/register" element={<RegisterDonor />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/donor" element={<DonorDashboard />} />
+            <Route path="/emergency" element={<Emergency />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+        <Footer />
+      </HashRouter>
+    </AuthProvider>
   )
 }
