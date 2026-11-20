@@ -181,7 +181,8 @@ The seed also creates three public emergency board posts.
 | `/donor` | Donor profile and received requests |
 | `/emergency` | Public emergency board |
 | `/privacy` | Privacy policy |
-| `/terms` | Terms of use |
+| `/terms` | Terms and conditions |
+| `/donation-disclaimer` | Donation disclaimer |
 
 ## API Overview
 

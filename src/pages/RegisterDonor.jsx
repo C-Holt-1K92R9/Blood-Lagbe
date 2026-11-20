@@ -338,7 +338,7 @@ export default function RegisterDonor() {
                 <span className="body-6 text-mute">
                   I agree to the{' '}
                   <Link to="/terms" className="font-medium text-strong underline decoration-line underline-offset-4">
-                    terms of use
+                    terms and conditions
                   </Link>{' '}
                   and{' '}
                   <Link to="/privacy" className="font-medium text-strong underline decoration-line underline-offset-4">

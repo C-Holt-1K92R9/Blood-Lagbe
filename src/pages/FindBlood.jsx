@@ -156,9 +156,9 @@ export default function FindBlood() {
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)_280px]">
+        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
           {/* ------------- request form ------------- */}
-          <form onSubmit={submit} noValidate className="h-fit rounded-2xl border border-line bg-raised p-5 shadow-[var(--shadow-card)]">
+          <form onSubmit={submit} noValidate className="h-fit rounded-2xl border-2 border-strong bg-raised p-5 shadow-[var(--shadow-card)]">
             <p className="caption-3 uppercase tracking-widest text-brand">Emergency request</p>
             <h2 className="heading-5 mt-2">Find blood near you</h2>
 
@@ -452,7 +452,7 @@ export default function FindBlood() {
             )}
 
             {phase === 'done' && (
-              <div className="flex flex-1 flex-col rounded-2xl border border-line bg-raised">
+              <div className="flex flex-1 flex-col rounded-2xl border-2 border-strong bg-raised shadow-[var(--shadow-card)]">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
                   <div>
                     <p className="title-3">
@@ -560,7 +560,7 @@ export default function FindBlood() {
           </div>
 
           {/* ------------- summary ------------- */}
-          <aside className="h-fit rounded-2xl border border-line bg-raised shadow-[var(--shadow-card)] xl:sticky xl:top-20">
+          <aside className="h-fit rounded-2xl border-2 border-strong bg-raised shadow-[var(--shadow-card)] xl:sticky xl:top-20">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <p className="caption-3 uppercase tracking-wider text-mute">Current request</p>
               <span className="caption-5 rounded-full bg-brand-soft px-2 py-1 font-mono text-brand">
@@ -576,11 +576,11 @@ export default function FindBlood() {
               </p>
 
               <dl className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-line bg-surface p-3">
+                <div className="rounded-xl border-2 border-strong bg-surface p-3 shadow-[3px_3px_0_var(--text)]">
                   <dt className="caption-5 text-faint">Within 10 km</dt>
                   <dd className="font-mono text-lg font-semibold text-strong">{phase === 'done' ? near.length : '—'}</dd>
                 </div>
-                <div className="rounded-xl border border-line bg-surface p-3">
+                <div className="rounded-xl border-2 border-strong bg-surface p-3 shadow-[3px_3px_0_var(--text)]">
                   <dt className="caption-5 text-faint">Same city</dt>
                   <dd className="font-mono text-lg font-semibold text-strong">{phase === 'done' ? sameCity.length : '—'}</dd>
                 </div>

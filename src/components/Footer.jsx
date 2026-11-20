@@ -1,12 +1,8 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Siren } from '@phosphor-icons/react'
 import Logo from './Logo.jsx'
 
 export default function Footer() {
-  const { pathname } = useLocation()
-
-  if (pathname === '/') return null
-
   return (
     <footer className="border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8">
@@ -28,7 +24,7 @@ export default function Footer() {
             </div>
           </div>
 
-          <nav className="md:col-span-2" aria-label="Product">
+          <nav className="md:col-span-4" aria-label="Product">
             <p className="caption-3 uppercase tracking-wider text-faint">Product</p>
             <ul className="mt-3 space-y-3">
               <li><Link to="/find" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Find blood</Link></li>
@@ -38,21 +34,12 @@ export default function Footer() {
             </ul>
           </nav>
 
-          <nav className="md:col-span-3" aria-label="Company">
-            <p className="caption-3 uppercase tracking-wider text-faint">Company</p>
-            <ul className="mt-3 space-y-3">
-              <li><a href="mailto:hello@bloodlagbe.com.bd" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">hello@bloodlagbe.com.bd</a></li>
-              <li><a href="mailto:partners@bloodlagbe.com.bd" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Partner with us</a></li>
-              <li><a href="mailto:trust@bloodlagbe.com.bd" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Report a concern</a></li>
-            </ul>
-          </nav>
-
-          <nav className="md:col-span-3" aria-label="Legal">
+          <nav className="md:col-span-4" aria-label="Legal">
             <p className="caption-3 uppercase tracking-wider text-faint">Legal</p>
             <ul className="mt-3 space-y-3">
               <li><Link to="/privacy" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Privacy policy</Link></li>
-              <li><Link to="/terms" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Terms of use</Link></li>
-              <li><Link to="/terms#donations" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Donation disclaimer</Link></li>
+              <li><Link to="/terms" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Terms &amp; conditions</Link></li>
+              <li><Link to="/donation-disclaimer" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Donation disclaimer</Link></li>
             </ul>
           </nav>
         </div>

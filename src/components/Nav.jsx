@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Moon, Sun, UserCircle, X } from '@phosphor-icons/react'
+import { List, Moon, Sun, UserCircle, X } from '@phosphor-icons/react'
 import Logo from './Logo.jsx'
 import { useAuth } from '../lib/session.jsx'
 
@@ -13,10 +13,13 @@ const LINKS = [
 export default function Nav() {
   const [open, setOpen] = useState(false)
   const [dark, setDark] = useState(() =>
-    typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : true,
+    typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : false,
   )
+  const themeTimer = useRef(null)
   const location = useLocation()
   const { donor, loading } = useAuth()
+
+  useEffect(() => () => window.clearTimeout(themeTimer.current), [])
 
   useEffect(() => {
     setOpen(false)
@@ -37,8 +40,14 @@ export default function Nav() {
 
   const toggleTheme = () => {
     const next = !dark
+    const root = document.documentElement
+    root.classList.add('theme-transition')
+    root.classList.toggle('dark', next)
     setDark(next)
-    document.documentElement.classList.toggle('dark', next)
+    const themeColor = document.querySelector('meta[name="theme-color"]')
+    if (themeColor) themeColor.setAttribute('content', next ? '#000000' : '#F9F9F5')
+    window.clearTimeout(themeTimer.current)
+    themeTimer.current = window.setTimeout(() => root.classList.remove('theme-transition'), 550)
     try {
       localStorage.setItem('bl-theme', next ? 'dark' : 'light')
     } catch {
@@ -56,7 +65,10 @@ export default function Nav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-canvas/95 px-4 backdrop-blur-xl sm:px-6">
+      <header
+        className="fixed inset-x-0 top-0 z-50 border-b border-line px-4 backdrop-blur-xl sm:px-6"
+        style={{ backgroundColor: 'var(--nav-surface)' }}
+      >
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Blood Lagbe home">
             <Logo className="h-7 w-7" />
@@ -76,9 +88,24 @@ export default function Nav() {
               type="button"
               onClick={toggleTheme}
               aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-mute transition-colors duration-300 ease-out hover:bg-lifted hover:text-strong active:scale-[0.98]"
+              className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg text-mute transition-colors duration-300 ease-out hover:bg-lifted hover:text-strong active:scale-[0.98]"
             >
-              {dark ? <Sun size={19} weight="regular" /> : <Moon size={19} weight="regular" />}
+              <span
+                className={`theme-toggle-icon absolute transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                  dark ? 'rotate-0 opacity-100' : 'rotate-90 opacity-0'
+                }`}
+                aria-hidden="true"
+              >
+                <Sun size={19} weight="regular" />
+              </span>
+              <span
+                className={`theme-toggle-icon absolute transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                  dark ? '-rotate-90 opacity-0' : 'rotate-0 opacity-100'
+                }`}
+                aria-hidden="true"
+              >
+                <Moon size={19} weight="regular" />
+              </span>
             </button>
 
             {!loading && (
@@ -104,16 +131,24 @@ export default function Nav() {
               aria-expanded={open}
               aria-controls="mobile-menu"
               aria-label={open ? 'Close menu' : 'Open menu'}
-              className="flex h-9 w-9 flex-col items-center justify-center gap-[5px] rounded-lg text-strong transition-colors duration-300 hover:bg-lifted md:hidden"
+              className="relative flex h-9 w-9 flex-col items-center justify-center gap-[5px] overflow-hidden rounded-lg text-strong transition-colors duration-300 hover:bg-lifted md:hidden"
             >
-              {open ? (
-                <X size={20} aria-hidden="true" />
-              ) : (
-                <>
-                  <span className="block h-[1.5px] w-5 bg-current transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" />
-                  <span className="block h-[1.5px] w-5 bg-current transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" />
-                </>
-              )}
+              <span
+                className={`absolute transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                  open ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0'
+                }`}
+                aria-hidden="true"
+              >
+                <X size={20} />
+              </span>
+              <span
+                className={`absolute transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                  open ? 'rotate-90 opacity-0' : 'rotate-0 opacity-100'
+                }`}
+                aria-hidden="true"
+              >
+                <List size={20} />
+              </span>
             </button>
           </div>
         </div>

@@ -9,7 +9,7 @@ import RegisterDonor from './pages/RegisterDonor.jsx'
 import Login from './pages/Login.jsx'
 import DonorDashboard from './pages/DonorDashboard.jsx'
 import Emergency from './pages/Emergency.jsx'
-import { Privacy, Terms } from './pages/Legal.jsx'
+import { DonationDisclaimer, Privacy, Terms } from './pages/Legal.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 const TITLES = {
@@ -20,7 +20,8 @@ const TITLES = {
   '/donor': 'Your donor page | Blood Lagbe',
   '/emergency': 'Emergency blood board | Blood Lagbe',
   '/privacy': 'Privacy policy | Blood Lagbe',
-  '/terms': 'Terms of use | Blood Lagbe',
+  '/terms': 'Terms & Conditions | Blood Lagbe',
+  '/donation-disclaimer': 'Donation disclaimer | Blood Lagbe',
 }
 
 function ScrollToTop() {
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/emergency" element={<Emergency />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/donation-disclaimer" element={<DonationDisclaimer />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

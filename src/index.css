@@ -8,29 +8,29 @@
    #000000 · #181818 · #1F1F1F · #272727 · #313131 · #131209
    ----------------------------------------------------------- */
 :root {
-  --bg: #fafaf8;
+  --bg: #f9f9f5;
   --surface: #ffffff;
   --raised: #ffffff;
-  --raised-2: #f2f2ef;
-  --line: #e8e6e1;
-  --text: #141414;
-  --mute: #57534e;
-  --faint: #6e6a61;
+  --raised-2: #f0f0e8;
+  --line: #d1cec2;
+  --text: #1a1a1a;
+  --mute: #575650;
+  --faint: #737168;
   --brand: #d92d20;
   --brand-hover: #b42318;
   --brand-soft: rgba(217, 45, 32, 0.08);
   --brand-solid: #d92d20;
   --brand-solid-hover: #b42318;
   --on-brand: #ffffff;
-  --good: #067647;
-  --good-soft: rgba(6, 118, 71, 0.1);
-  --amber: #b54708;
-  --amber-soft: rgba(181, 71, 8, 0.1);
+  --good: #4f775d;
+  --good-soft: rgba(79, 119, 93, 0.13);
+  --amber: #a45a20;
+  --amber-soft: rgba(164, 90, 32, 0.12);
   --heading-from: #000000;
   --heading-to: #666666;
-  --shadow-card: 0 1px 2px rgba(16, 15, 12, 0.05), 0 12px 32px rgba(16, 15, 12, 0.08);
-  --nav-surface: rgba(255, 255, 255, 0.72);
-  --panel-surface: rgba(250, 250, 248, 0.92);
+  --shadow-card: 4px 4px 0 rgba(26, 26, 26, 0.88);
+  --nav-surface: rgba(249, 249, 245, 0.88);
+  --panel-surface: rgba(249, 249, 245, 0.96);
   color-scheme: light;
 }
 
@@ -49,20 +49,28 @@
   --brand-solid: #d92d20;
   --brand-solid-hover: #f04438;
   --on-brand: #ffffff;
-  --good: #3dd68c;
-  --good-soft: rgba(61, 214, 140, 0.12);
-  --amber: #fdb022;
-  --amber-soft: rgba(253, 176, 34, 0.12);
+  --good: #83a98a;
+  --good-soft: rgba(131, 169, 138, 0.16);
+  --amber: #e9a465;
+  --amber-soft: rgba(233, 164, 101, 0.14);
   --heading-from: #ffffff;
   --heading-to: #9b9b9b;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --nav-surface: rgba(24, 24, 24, 0.66);
-  --panel-surface: rgba(0, 0, 0, 0.88);
+  --shadow-card: 4px 4px 0 #313131;
+  --nav-surface: rgba(24, 24, 24, 0.88);
+  --panel-surface: rgba(0, 0, 0, 0.96);
   color-scheme: dark;
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+html.theme-transition,
+html.theme-transition body,
+html.theme-transition body *:not(.theme-toggle-icon) {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body {
@@ -163,8 +171,52 @@ body {
   }
 }
 
+a.button-lg,
+button.button-lg,
+a.button-md,
+button.button-md,
+a.button-sm,
+button.button-sm {
+  border: 2px solid var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+a.button-lg:hover,
+button.button-lg:hover,
+a.button-md:hover,
+button.button-md:hover,
+a.button-sm:hover,
+button.button-sm:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+a.button-lg:active,
+button.button-lg:active,
+a.button-md:active,
+button.button-md:active,
+a.button-sm:active,
+button.button-sm:active {
+  transform: translate(3px, 3px) scale(0.98);
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  html.theme-transition,
+  html.theme-transition body,
+  html.theme-transition body * {
+    transition-duration: 1ms;
+  }
+  a.button-lg,
+  button.button-lg,
+  a.button-md,
+  button.button-md,
+  a.button-sm,
+  button.button-sm {
+    transition-duration: 1ms;
+  }
   .reveal,
   .tagline-word {
     transition: opacity 200ms ease;
