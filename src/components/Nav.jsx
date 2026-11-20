@@ -118,14 +118,13 @@ export default function Nav() {
           </div>
         </div>
 
-        {/* Mobile full height panel */}
+        {/* Mobile full-height menu panel */}
         {open && (
           <div
             id="mobile-menu"
-            className="fixed inset-0 top-0 z-[-1] flex flex-col justify-end pt-20 md:hidden"
-            style={{ background: 'var(--panel-surface)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)' }}
+            className="fixed inset-x-0 top-16 z-40 flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-canvas pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden"
           >
-            <nav className="flex flex-col gap-1 px-6 pb-16" aria-label="Menu">
+            <nav className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-6" aria-label="Menu">
               {LINKS.map((link, i) => {
                 const delay = `${i * 60}ms`
                 return (

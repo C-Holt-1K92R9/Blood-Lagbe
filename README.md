@@ -141,6 +141,7 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | `DATABASE_URL_POOLED` | Optional | Pooled database connection used by database helpers |
 | `RESEND_API_KEY` | Optional | Enables Resend email delivery |
 | `MAIL_FROM` | Optional | Verified sender address shown in outgoing mail |
+| `CRON_SECRET` | Required on Vercel | Protects the scheduled emergency-board cleanup endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
@@ -187,6 +188,7 @@ The seed also creates three public emergency board posts.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Database and mail status |
+| `GET` | `/api/cleanup-board` | Delete emergency board posts older than 30 days; requires `CRON_SECRET` |
 | `POST` | `/api/register` | Create a donor account and session |
 | `POST` | `/api/login` | Sign in a donor |
 | `POST` | `/api/logout` | End the current session |
@@ -226,11 +228,11 @@ See [server/schema.sql](server/schema.sql) for constraints, indexes, and relatio
 5. Start the app with `npm start`.
 6. Set `NODE_ENV=production` when using HTTPS. The session cookie then receives the `Secure` flag.
 
-The `/find` map is a stylised SVG: displayed distances are real, but pin angles are illustrative and precise donor coordinates are not exposed.
+Emergency board posts older than 30 days are removed once per day by the Vercel scheduled cleanup.
 
 ### Deploying to Vercel
 
-The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), plus `RESEND_API_KEY` and `MAIL_FROM` if email delivery is required. Add variables to each environment you deploy to, then redeploy.
+The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, plus `RESEND_API_KEY` and `MAIL_FROM` if email delivery is required. Use a random `CRON_SECRET` with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
 
 Before using the app, run `npm run db:setup` once against the same database configured in Vercel. After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
 
@@ -241,7 +243,7 @@ Before using the app, run `npm run db:setup` once against the same database conf
 - Donor coordinates are not publicly disclosed.
 - No email verification or OTP is currently implemented.
 - There is no forgotten-password flow. Signed-in users can change their password from the donor page.
-- Emergency posts remain open until closed by the browser that created them and do not currently expire automatically.
+- Emergency posts can be closed by the browser that created them and are automatically deleted after 30 days.
 
 Do not use the system to replace professional medical advice, hospital screening, blood-bank procedures, or emergency services.
 

@@ -18,7 +18,6 @@ import { api, fieldErrors } from '../lib/api.js'
 import { dhakaDateTimeInputValue } from '../lib/geo.js'
 import { isBdMobile } from '../lib/phone.js'
 import { FormAlert, LocationField, SelectField, TextField, inputClass } from '../components/Form.jsx'
-import DonorMap from '../components/DonorMap.jsx'
 
 const emptyForm = {
   bloodGroup: '',
@@ -60,7 +59,6 @@ export default function FindBlood() {
   const [serverError, setServerError] = useState('')
   const [phase, setPhase] = useState('idle')
   const [result, setResult] = useState(null)
-  const [selectedId, setSelectedId] = useState(null)
 
   const set = (key) => (e) => {
     const value = e.target.value
@@ -95,7 +93,6 @@ export default function FindBlood() {
     if (!validate()) return
 
     setPhase('loading')
-    setSelectedId(null)
     try {
       const data = await api('/requests/search', {
         method: 'POST',
@@ -122,7 +119,6 @@ export default function FindBlood() {
     setErrors({})
     setServerError('')
     setResult(null)
-    setSelectedId(null)
     setPhase('idle')
   }
 
@@ -427,17 +423,8 @@ export default function FindBlood() {
             )}
           </form>
 
-          {/* ------------- map + results ------------- */}
+          {/* ------------- results ------------- */}
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="dot-grid relative h-56 overflow-hidden rounded-2xl border border-line sm:h-72">
-              <DonorMap
-                donors={phase === 'done' ? result.donors : []}
-                origin={phase === 'done' ? result.origin : null}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-              />
-            </div>
-
             {phase === 'idle' && (
               <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-6 py-12 text-center">
                 <Drop size={34} weight="duotone" className="text-faint" aria-hidden="true" />
@@ -556,8 +543,6 @@ export default function FindBlood() {
                         note="Nearest eligible donors, sorted by distance"
                         donors={near}
                         situation={result.request.situation}
-                        selectedId={selectedId}
-                        onSelect={setSelectedId}
                       />
                       {sameCity.length > 0 && (
                         <Group
@@ -565,8 +550,6 @@ export default function FindBlood() {
                           note="Same city, beyond the 10 km radius"
                           donors={sameCity}
                           situation={result.request.situation}
-                          selectedId={selectedId}
-                          onSelect={setSelectedId}
                         />
                       )}
                     </div>
@@ -654,7 +637,7 @@ export default function FindBlood() {
   )
 }
 
-function Group({ title, note, donors, situation, selectedId, onSelect }) {
+function Group({ title, note, donors, situation }) {
   if (donors.length === 0) return null
   return (
     <section>
@@ -664,21 +647,15 @@ function Group({ title, note, donors, situation, selectedId, onSelect }) {
       </div>
       <ul>
         {donors.map((d) => {
-          const isSel = d.id === selectedId
           return (
             <li
               key={d.id}
-              className={`border-t border-line px-5 py-4 transition-colors duration-300 ${isSel ? 'bg-brand-soft/60' : 'hover:bg-lifted'}`}
+              className="border-t border-line px-5 py-4 transition-colors duration-300 hover:bg-lifted"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => onSelect(d.id)}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft"
-                  aria-label={`Show ${d.name} on the map`}
-                >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft" aria-hidden="true">
                   <span className="font-mono text-sm font-semibold text-brand">{d.bloodGroup}</span>
-                </button>
+                </div>
 
                 <div className="min-w-0 flex-1">
                   <p className="title-4">{d.name}</p>
