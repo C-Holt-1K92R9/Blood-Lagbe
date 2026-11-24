@@ -8,9 +8,9 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8">
         <div className="grid gap-10 md:grid-cols-12">
           <div className="md:col-span-4">
-            <Link to="/" className="flex w-fit items-center gap-2 rounded-lg" aria-label="Blood Lagbe home">
+            <Link to="/" className="flex w-fit items-center gap-2 rounded-lg" aria-label="Donor Koi home">
               <Logo className="h-7 w-7" />
-              <span className="title-2 tracking-tight">Blood Lagbe</span>
+              <span className="title-2 tracking-tight">Donor Koi</span>
             </Link>
             <p className="body-6 mt-4 max-w-xs text-mute">
               Connecting families in an emergency with donors who are nearby, verified and available right now.
@@ -19,7 +19,7 @@ export default function Footer() {
               <Siren size={20} className="mt-0.5 shrink-0 text-brand" weight="regular" aria-hidden="true" />
               <p className="caption-2 text-mute">
                 Life threatening emergency? Call <span className="font-semibold text-strong">999</span> or go to the
-                nearest hospital first. Blood Lagbe is not a substitute for emergency medical care.
+                nearest hospital first. Donor Koi is not a substitute for emergency medical care.
               </p>
             </div>
           </div>
@@ -45,7 +45,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="caption-5 text-faint">© 2026 Blood Lagbe. Dhaka pilot, Bangladesh.</p>
+          <p className="caption-5 text-faint">© 2026 Donor Koi. Dhaka pilot, Bangladesh.</p>
           <p className="caption-5 text-faint">Dhaka pilot · 14 districts</p>
         </div>
       </div>

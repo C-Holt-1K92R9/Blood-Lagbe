@@ -13,15 +13,15 @@ import { DonationDisclaimer, Privacy, Terms } from './pages/Legal.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 const TITLES = {
-  '/': 'Blood Lagbe | Find blood donors near you in minutes',
-  '/find': 'Find a blood donor | Blood Lagbe',
-  '/register': 'Become a blood or plasma donor | Blood Lagbe',
-  '/login': 'Donor sign in | Blood Lagbe',
-  '/donor': 'Your donor page | Blood Lagbe',
-  '/emergency': 'Emergency blood board | Blood Lagbe',
-  '/privacy': 'Privacy policy | Blood Lagbe',
-  '/terms': 'Terms & Conditions | Blood Lagbe',
-  '/donation-disclaimer': 'Donation disclaimer | Blood Lagbe',
+  '/': 'Donor Koi | Find blood donors near you in minutes',
+  '/find': 'Find a blood donor | Donor Koi',
+  '/register': 'Become a blood or plasma donor | Donor Koi',
+  '/login': 'Donor sign in | Donor Koi',
+  '/donor': 'Your donor page | Donor Koi',
+  '/emergency': 'Emergency blood board | Donor Koi',
+  '/privacy': 'Privacy policy | Donor Koi',
+  '/terms': 'Terms & Conditions | Donor Koi',
+  '/donation-disclaimer': 'Donation disclaimer | Donor Koi',
 }
 
 function ScrollToTop() {
@@ -32,7 +32,7 @@ function ScrollToTop() {
   }, [pathname])
 
   useEffect(() => {
-    document.title = TITLES[pathname] || 'Page not found | Blood Lagbe'
+    document.title = TITLES[pathname] || 'Page not found | Donor Koi'
   }, [pathname])
 
   return null

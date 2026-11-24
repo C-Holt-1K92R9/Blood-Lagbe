@@ -70,9 +70,9 @@ export default function Nav() {
         style={{ backgroundColor: 'var(--nav-surface)' }}
       >
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Blood Lagbe home">
+          <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Donor Koi home">
             <Logo className="h-7 w-7" />
-            <span className="title-3 tracking-tight text-strong">Blood Lagbe</span>
+            <span className="title-3 tracking-tight text-strong">Donor Koi</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

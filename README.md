@@ -1,8 +1,8 @@
-# Blood Lagbe
+# Donor Koi
 
 **A fast, community-focused blood and plasma donor finder for Bangladesh.**
 
-Blood Lagbe helps people find registered and available donors by blood group and location. Seekers can make immediate or scheduled requests, while a public emergency board provides another way to ask for help when no registered donor is available.
+Donor Koi helps people find registered and available donors by blood group and location. Seekers can make immediate or scheduled requests, while a public emergency board provides another way to ask for help when no registered donor is available.
 
 The project is free for seekers and designed to keep the search process simple: enter the need, verify the location, view eligible matches, and contact a donor directly or notify them by email.
 
@@ -34,7 +34,7 @@ The project is free for seekers and designed to keep the search process simple: 
 5. Recent donors are excluded according to the donation interval:
    - blood: 90 days
    - plasma: 28 days
-6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and emailed to up to 25 matched donors.
+6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and emailed to up to 25 matched donors in one BCC message.
 
 Scheduled `datetime-local` values are interpreted in **Asia/Dhaka (UTC+06:00)** so stored request times do not depend on the server timezone.
 
@@ -141,11 +141,13 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | `DATABASE_URL_POOLED` | Optional | Pooled database connection used by database helpers |
 | `RESEND_API_KEY` | Optional | Enables Resend email delivery |
 | `MAIL_FROM` | Optional | Verified sender address shown in outgoing mail |
+| `GMAIL_USER` | Optional | Gmail account used by the Gmail mail helper in `server/lib/test.js` |
+| `GMAIL_APP_PASSWORD` | Optional | Google App Password for the Gmail mail helper |
 | `CRON_SECRET` | Required on Vercel | Protects the scheduled emergency-board cleanup endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
-Copy `.env.example` to `.env` and keep `.env` private. Without a Resend API key, mail is recorded in the `email_outbox` table and the interface reports it as queued.
+Copy `.env.example` to `.env` and keep `.env` private. Without a Resend API key, production mail is recorded in the `email_outbox` table and the interface reports it as queued. `server/lib/test.js` uses Gmail when its Gmail credentials are configured; use a Google App Password rather than your account password.
 
 ## Demo Accounts
 

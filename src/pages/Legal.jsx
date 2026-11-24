@@ -29,8 +29,8 @@ export function Privacy() {
     <LegalPage title="Privacy policy" updated={UPDATED}>
       <Section heading="About this policy">
         <p>
-          This policy explains what information Blood Lagbe handles, why it is used, who may receive it and what the
-          current app does when you update or delete information. Blood Lagbe is a donor-matching service, not a medical
+          This policy explains what information Donor Koi handles, why it is used, who may receive it and what the
+          current app does when you update or delete information. Donor Koi is a donor-matching service, not a medical
           records system. Please do not submit identity documents, payment details, diagnoses or other information that
           the forms do not ask for.
         </p>
@@ -183,20 +183,20 @@ export function Terms() {
     <LegalPage title="Terms & Conditions" updated={UPDATED}>
       <Section heading="1. The service and these terms">
         <p>
-          Blood Lagbe helps people looking for blood or plasma contact registered donors and post requests on a
+          Donor Koi helps people looking for blood or plasma contact registered donors and post requests on a
           community emergency board. It is a matching and communication service only. By accessing or using the
           service, you agree to these terms and the <Link className="underline underline-offset-4" to="/privacy">Privacy
           Policy</Link>. If you do not agree, do not create an account or submit a request.
         </p>
         <p>
-          Blood Lagbe is not a hospital, blood bank, medical provider, emergency dispatch service or representative of
+          Donor Koi is not a hospital, blood bank, medical provider, emergency dispatch service or representative of
           any donor, seeker or healthcare facility. It does not collect, test, store, transport or transfuse blood.
         </p>
       </Section>
 
       <Section heading="2. Emergency and medical care">
         <p>
-          Do not wait for a response through Blood Lagbe when someone needs urgent medical care. Call 999 and go to the
+          Do not wait for a response through Donor Koi when someone needs urgent medical care. Call 999 and go to the
           nearest hospital or licensed medical facility. The service is not monitored as an emergency hotline and cannot
           provide medical advice, triage or treatment.
         </p>
@@ -251,8 +251,8 @@ export function Terms() {
 
       <Section heading="6. Voluntary, unpaid donation">
         <p>
-          Donating through Blood Lagbe is voluntary and unpaid. Users must not offer, request, accept or arrange money,
-          gifts, services or other benefits in exchange for a donation. Blood Lagbe does not sell blood, accept donation
+          Donating through Donor Koi is voluntary and unpaid. Users must not offer, request, accept or arrange money,
+          gifts, services or other benefits in exchange for a donation. Donor Koi does not sell blood, accept donation
           payments or collect a fee for connecting a seeker with a donor. Read the separate{' '}
           <Link className="font-medium text-strong underline underline-offset-4" to="/donation-disclaimer">
             Donation Disclaimer
@@ -296,7 +296,7 @@ export function Terms() {
       <Section heading="10. Disclaimers and responsibility">
         <p>
           The service is provided as available, without a promise that a request will find a donor or lead to a
-          successful donation. To the extent allowed by applicable law, Blood Lagbe is not responsible for users&apos;
+          successful donation. To the extent allowed by applicable law, Donor Koi is not responsible for users&apos;
           independent conduct, medical decisions, facility decisions, inaccurate user-submitted information, or
           interruptions caused by external providers.
         </p>
@@ -323,9 +323,9 @@ export function Terms() {
 export function DonationDisclaimer() {
   return (
     <LegalPage title="Donation Disclaimer" updated={UPDATED}>
-      <Section heading="Blood Lagbe is not a medical service">
+      <Section heading="Donor Koi is not a medical service">
         <p>
-          Blood Lagbe helps seekers contact people who have registered as donors. It is not a hospital, blood bank,
+          Donor Koi helps seekers contact people who have registered as donors. It is not a hospital, blood bank,
           laboratory, medical professional or emergency service. We do not collect, test, screen, store, transport,
           match for clinical compatibility, or transfuse blood or plasma.
         </p>
@@ -338,7 +338,7 @@ export function DonationDisclaimer() {
       <Section heading="A match is not medical clearance">
         <p>
           Blood group, donation type, last-donation date, availability and location are entered by users and are not
-          independently verified by Blood Lagbe. The app uses a 90-day interval for whole-blood matching and a 28-day
+          independently verified by Donor Koi. The app uses a 90-day interval for whole-blood matching and a 28-day
           interval for plasma matching. These are software filters only: they do not determine whether a person is
           healthy, eligible or safe to donate.
         </p>
@@ -359,7 +359,7 @@ export function DonationDisclaimer() {
 
       <Section heading="Donations must be voluntary and unpaid">
         <p>
-          Blood Lagbe does not sell blood, arrange paid donations or process payments. No user may offer, request, accept
+          Donor Koi does not sell blood, arrange paid donations or process payments. No user may offer, request, accept
           or arrange money, gifts, services or other benefits in exchange for a donation through this service. Do not
           send money to someone who claims payment is required to secure a donor or blood.
         </p>

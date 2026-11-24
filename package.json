@@ -1,5 +1,5 @@
 {
-  "name": "blood-lagbe",
+  "name": "Donor-Koi",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,6 +17,7 @@
     "@fontsource/geist-mono": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",
     "express": "^5.3.0",
+    "nodemailer": "^10.6.1",
     "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

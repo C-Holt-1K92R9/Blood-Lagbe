@@ -29,12 +29,12 @@ function formatNeededAt(value) {
   return `${dhakaDate.format(new Date(value))} (Bangladesh time)`
 }
 
-function emailBody({ request, donor }) {
+function emailBody({ request }) {
   const when = request.situation === 'later' ? formatNeededAt(request.needed_at) : 'Immediately, today'
   return {
     subject: `${request.blood_group} ${request.need_type} needed in ${request.city} (${request.public_id})`,
     text: [
-      `Hello ${donor.name.split(' ')[0]},`,
+      'Hello,',
       '',
       `A patient near you needs ${request.blood_group} ${request.need_type}.`,
       '',
@@ -51,24 +51,23 @@ function emailBody({ request, donor }) {
       '',
       `Reference: ${request.public_id}`,
       '',
-      'Blood Lagbe',
+      'Donor Koi',
     ]
       .filter((line) => line !== null)
       .join('\n'),
   }
 }
 
-function emailHtml({ request, donor }) {
+function emailHtml({ request }) {
   const when = request.situation === 'later' ? formatNeededAt(request.needed_at) : 'Immediately, today'
   const phoneHref = request.requester_phone.replace(/[^\d+]/g, '')
-  const firstName = esc(donor.name.split(' ')[0])
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#fafaf8;font-family:Arial,Helvetica,sans-serif;color:#141414;">
   <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e8e6e1;border-radius:16px;">
     <tr><td style="padding:28px;">
-      <p style="margin:0;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#d92d20;font-weight:700;">Blood Lagbe request</p>
+      <p style="margin:0;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#d92d20;font-weight:700;">Donor Koi request</p>
       <h1 style="margin:10px 0 0;font-size:22px;line-height:1.3;">${esc(request.blood_group)} ${esc(request.need_type)} needed in ${esc(request.city)}</h1>
-      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;">Hello ${firstName}, a patient near you needs ${esc(request.need_type)}. If you can help, call the requester directly.</p>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;">Hello, a patient near you needs ${esc(request.need_type)}. If you can help, call the requester directly.</p>
       <table role="presentation" style="margin:20px 0 0;width:100%;font-size:14px;line-height:1.6;">
         <tr><td style="padding:4px 0;color:#57534e;width:110px;">Needed</td><td style="padding:4px 0;font-weight:600;">${esc(when)}</td></tr>
         <tr><td style="padding:4px 0;color:#57534e;">Location</td><td style="padding:4px 0;font-weight:600;">${esc(request.address_text)}, ${esc(request.city)}, ${esc(request.division)}</td></tr>
@@ -89,7 +88,7 @@ function emailHtml({ request, donor }) {
    receipt for both immediate and scheduled requests so the promise is real. */
 function receiptMessage({ request, matchedCount, emailedCount }) {
   const when = request.situation === 'later' ? formatNeededAt(request.needed_at) : 'Immediately, today'
-  const subject = `Blood Lagbe request ${request.public_id} received`
+  const subject = `Donor Koi request ${request.public_id} received`
   const text = [
     `Hello ${request.requester_name.split(' ')[0]},`,
     '',
@@ -108,7 +107,7 @@ function receiptMessage({ request, matchedCount, emailedCount }) {
     '',
     'Keep this reference for follow-up. In a life-threatening emergency, call 999 first.',
     '',
-    'Blood Lagbe',
+    'Donor Koi',
   ].join('\n')
 
   const html = `<!doctype html>
@@ -253,28 +252,30 @@ router.post(
 
     if (situation === 'later' && donors.length > 0) {
       emailStatus = 'queued'
-      const targets = donors.slice(0, MAX_EMAILS)
+      const targets = donors.filter((donor) => donor.email).slice(0, MAX_EMAILS)
       const deliveryByDonor = new Map()
-      for (const donor of targets) {
-        const payload = { request, donor }
+      if (targets.length > 0) {
+        const payload = { request }
         const message = emailBody(payload)
         const result = await sendMail({
-          to: donor.email,
+          bcc: targets.map((donor) => donor.email),
           subject: message.subject,
           text: message.text,
           html: emailHtml(payload),
         })
-        deliveryByDonor.set(donor.id, result.status)
-        await query(
-          `insert into request_notifications (request_id, donor_id, channel, status, detail)
-           values ($1, $2, 'email', $3, $4)`,
-          [request.id, donor.id, result.status, result.error],
-        )
-        if (result.status === 'sent') emailed += 1
-        if (result.status === 'logged') queued += 1
+        for (const donor of targets) {
+          deliveryByDonor.set(donor.id, result.status)
+          await query(
+            `insert into request_notifications (request_id, donor_id, channel, status, detail)
+             values ($1, $2, 'email', $3, $4)`,
+            [request.id, donor.id, result.status, result.error],
+          )
+        }
+        if (result.status === 'sent') emailed = targets.length
+        if (result.status === 'logged') queued = targets.length
       }
       for (const donor of donors) donor.notifyStatus = deliveryByDonor.get(donor.id) || null
-      emailStatus = emailed > 0 ? 'sent' : queued > 0 ? 'logged' : 'failed'
+      emailStatus = emailed > 0 ? 'sent' : queued > 0 ? 'logged' : targets.length > 0 ? 'failed' : 'not_requested'
       await query(`update blood_requests set status = $3, matched_count = $2 where id = $1`, [
         request.id,
         donors.length,

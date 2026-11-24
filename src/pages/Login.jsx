@@ -135,7 +135,7 @@ export default function Login() {
           </button>
 
           <p className="caption-2 mt-5 text-center text-mute">
-            New to Blood Lagbe?{' '}
+            New to Donor Koi?{' '}
             <Link
               to="/register"
               className="inline-flex items-center gap-1 font-medium text-strong underline decoration-line underline-offset-4 hover:decoration-brand"

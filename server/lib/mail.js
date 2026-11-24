@@ -1,59 +1,67 @@
+import '../env.js'
+import nodemailer from 'nodemailer'
 import { query } from '../db.js'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = process.env.MAIL_FROM || 'Blood Lagbe <onboarding@resend.dev>'
+const GMAIL_USER = process.env.USER
+const GMAIL_APP_PASSWORD = process.env.PASS
+const FROM = process.env.GMAIL_FROM
 
 export function mailMode() {
-  return process.env.RESEND_API_KEY ? 'resend' : 'outbox'
+  return GMAIL_USER && GMAIL_APP_PASSWORD ? 'gmail' : 'outbox'
 }
 
-/* Always writes to email_outbox so the flow is auditable (and inspectable when
-   no provider key is configured). When RESEND_API_KEY is present the message is
-   also handed to Resend. */
-export async function sendMail({ to, subject, text, html }) {
-  const key = process.env.RESEND_API_KEY
+export async function sendMail({ to, bcc, subject, text, html }) {
+  const bccRecipients = Array.isArray(bcc) ? bcc.filter(Boolean) : []
+  const outboxTo = bccRecipients.length ? bccRecipients.join(', ') : to
+  const recipientLabel = bccRecipients.length ? `${bccRecipients.length} BCC recipients` : to
   let status = 'logged'
   let provider = 'outbox'
   let providerId = null
   let error = null
 
-  if (key) {
-    provider = 'resend'
+  if (mailMode() === 'gmail') {
+    provider = 'gmail'
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: GMAIL_USER,
+        pass: GMAIL_APP_PASSWORD,
+      },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 10_000,
+    })
+
     try {
-      const res = await fetch(RESEND_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ from: FROM, to: [to], subject, text, html }),
-        signal: AbortSignal.timeout(10_000),
+      const info = await transporter.sendMail({
+        from: FROM,
+        to: to || (bccRecipients.length ? GMAIL_USER : undefined),
+        ...(bccRecipients.length ? { bcc: bccRecipients } : {}),
+        subject,
+        text,
+        html,
       })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok) {
-        status = 'sent'
-        providerId = data.id || null
-      } else {
-        status = 'failed'
-        error = data.message || `Resend responded ${res.status}`
-      }
+      status = 'sent'
+      providerId = info.messageId || null
     } catch (err) {
       status = 'failed'
-      error = err?.message || 'Email provider unreachable'
+      error = err?.message || 'Gmail delivery failed'
+    } finally {
+      transporter.close()
     }
   }
 
   await query(
     `insert into email_outbox (to_email, subject, body, provider, provider_id, status, error)
      values ($1, $2, $3, $4, $5, $6, $7)`,
-    [to, subject, text, provider, providerId, status, error],
+    [outboxTo, subject, text, provider, providerId, status, error],
   ).catch((err) => console.error('[mail] could not record outbox row:', err.message))
 
   if (status === 'logged') {
-    console.log(`[mail] (no provider configured) queued for ${to}: ${subject}`)
+    console.log(`[mail] (no Gmail credentials configured) queued for ${recipientLabel}: ${subject}`)
   }
   if (status === 'failed') {
-    console.error(`[mail] delivery failed for ${to}: ${error}`)
+    console.error(`[mail] delivery failed for ${recipientLabel}: ${error}`)
   }
 
   return { status, provider, providerId, error }

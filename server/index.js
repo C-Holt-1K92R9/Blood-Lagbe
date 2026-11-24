@@ -36,7 +36,7 @@ if (isProd) {
 app.use(errorHandler)
 
 const server = app.listen(port, () => {
-  console.log(`Blood Lagbe running at http://localhost:${port} (${isProd ? 'production' : 'development'})`)
+  console.log(`Donor Koi running at http://localhost:${port} (${isProd ? 'production' : 'development'})`)
 })
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

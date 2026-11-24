@@ -36,8 +36,8 @@ export const TESTIMONIALS = [
 
 export const FAQS = [
   {
-    q: 'Is Blood Lagbe free for patients and families?',
-    a: 'Yes, always. Blood Lagbe will never charge a seeker, a patient or a family for finding a donor. Donors donate voluntarily and are never paid through the platform. Anyone asking for money in exchange for a blood unit is a red flag — report it and walk away.',
+    q: 'Is Donor Koi free for patients and families?',
+    a: 'Yes, always. Donor Koi will never charge a seeker, a patient or a family for finding a donor. Donors donate voluntarily and are never paid through the platform. Anyone asking for money in exchange for a blood unit is a red flag — report it and walk away.',
   },
   {
     q: 'Who can donate blood?',
@@ -64,7 +64,7 @@ export const FAQS = [
     a: 'The pilot covers Dhaka and 14 neighbouring districts, including Gazipur, Narayanganj, Manikganj and Munshiganj. We are adding districts through 2026. Coverage maps are updated as new donor clusters form.',
   },
   {
-    q: 'Does Blood Lagbe replace the hospital blood bank?',
-    a: 'No. In an emergency, go to the nearest hospital first — 999 ambulance or straight to the casualty. Blood Lagbe works alongside the system to reach voluntary donors fast, but transfusion always happens at a licensed blood bank or hospital under medical supervision.',
+    q: 'Does Donor Koi replace the hospital blood bank?',
+    a: 'No. In an emergency, go to the nearest hospital first — 999 ambulance or straight to the casualty. Donor Koi works alongside the system to reach voluntary donors fast, but transfusion always happens at a licensed blood bank or hospital under medical supervision.',
   },
 ]

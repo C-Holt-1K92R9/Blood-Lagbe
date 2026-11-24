@@ -1,4 +1,4 @@
--- Blood Lagbe schema. Safe to run repeatedly.
+-- Donor Koi schema. Safe to run repeatedly.
 
 create extension if not exists pgcrypto;
 
@@ -19,7 +19,9 @@ create table if not exists donors (
   location_source text not null default 'none' check (location_source in ('gps','geocode','fallback','none')),
   available       boolean not null default true,
   created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
+  updated_at      timestamptz not null default now(),
+  varified        BOOLEAN NOT NULL DEFAULT false,
+  OTP             INTEGER
 );
 
 create unique index if not exists donors_email_key on donors (lower(email));
