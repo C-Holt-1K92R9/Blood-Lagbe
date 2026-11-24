@@ -1,5 +1,6 @@
 import { HttpError } from './http.js'
 import { isKnownCity } from '../../shared/bd.js'
+import { isApprovedEmail } from '../../shared/email.js'
 
 export const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
 export const NEED_TYPES = ['blood', 'plasma']
@@ -37,6 +38,14 @@ export function email(value, field = 'Email', required = true) {
   }
   if (!EMAIL_RE.test(clean) || clean.length > 254) {
     throw new HttpError(400, 'Enter a valid email address, e.g. name@example.com.', { field })
+  }
+  return clean
+}
+
+export function registrationEmail(value) {
+  const clean = email(value)
+  if (!isApprovedEmail(clean)) {
+    throw new HttpError(400, 'Use a Gmail, Yahoo, or Outlook email address.', { field: 'email' })
   }
   return clean
 }

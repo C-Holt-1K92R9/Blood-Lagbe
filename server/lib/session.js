@@ -76,7 +76,7 @@ export async function attachDonor(req, res, next) {
       `select d.*, s.expires_at
          from sessions s
          join donors d on d.id = s.donor_id
-        where s.token_hash = $1 and s.expires_at > now()
+        where s.token_hash = $1 and s.expires_at > now() and d.varified = true
         limit 1`,
       [hashToken(token)],
     )

@@ -218,6 +218,7 @@ router.post(
             and d.lat is not null
             and d.lng is not null
             and d.available = true
+            and d.varified = true
             and (
               d.last_donated is null
               or d.last_donated <= (now() at time zone 'Asia/Dhaka')::date - case when d.donation_type = 'plasma'

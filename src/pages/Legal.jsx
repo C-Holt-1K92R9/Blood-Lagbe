@@ -41,7 +41,9 @@ export function Privacy() {
           <li>
             <strong>Donor account:</strong> name, email, mobile number, password, blood group, blood or plasma donation
             type, optional last-donation date, availability, division, city, written address and optional GPS
-            coordinates. The password is stored as a salted scrypt hash, not as the original password.
+            coordinates. A temporary email verification code is stored for verification, becomes unusable after 5
+            minutes, is replaced when you request another, and is cleared after verification. The password is stored as
+            a salted scrypt hash, not as the original password.
           </li>
           <li>
             <strong>Blood search:</strong> requester name and phone number, optional email, requested blood group and
@@ -91,9 +93,10 @@ export function Privacy() {
         </p>
         <p>
           We also use service providers for hosting, database storage, geocoding and email delivery. The current
-          application uses Neon Postgres for its database, OpenStreetMap Nominatim for address geocoding, and Resend for
-          email when configured. Email content and delivery status are recorded in the database outbox in either mode.
-          If Resend is not configured, messages are queued in the outbox and are not automatically delivered.
+          application uses Neon Postgres for its database, OpenStreetMap Nominatim for address geocoding, and Gmail
+          SMTP for email when configured. Email content and delivery status are recorded in the database outbox in
+          either mode. If Gmail is not configured, messages are queued in the outbox and are not automatically
+          delivered.
           The exact hosting and data regions depend on the deployment. These providers handle data under their own
           service terms and privacy notices.
         </p>

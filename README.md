@@ -36,6 +36,8 @@ The project is free for seekers and designed to keep the search process simple: 
    - plasma: 28 days
 6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and emailed to up to 25 matched donors in one BCC message.
 
+Donor registration accepts Gmail, Yahoo, and Outlook-family addresses. New accounts remain unavailable until the 6-digit email code is verified; codes expire after 5 minutes. If registration is interrupted, sign in and choose **Verify now** to request a fresh code.
+
 Scheduled `datetime-local` values are interpreted in **Asia/Dhaka (UTC+06:00)** so stored request times do not depend on the server timezone.
 
 ## Public Emergency Board
@@ -54,7 +56,7 @@ The API generates a private close token for each post and stores it only in the 
 | Backend | Express 5 |
 | Database | Neon Postgres |
 | Geocoding | OpenStreetMap Nominatim |
-| Email | Resend, with database-backed fallback |
+| Email | Gmail SMTP, with database-backed fallback |
 
 The client and API are served by the same Node.js process. PostgreSQL data and table definitions are managed through `server/schema.sql`.
 
@@ -139,15 +141,14 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Neon pooled PostgreSQL connection string |
 | `DATABASE_URL_POOLED` | Optional | Pooled database connection used by database helpers |
-| `RESEND_API_KEY` | Optional | Enables Resend email delivery |
-| `MAIL_FROM` | Optional | Verified sender address shown in outgoing mail |
-| `GMAIL_USER` | Optional | Gmail account used by the Gmail mail helper in `server/lib/test.js` |
-| `GMAIL_APP_PASSWORD` | Optional | Google App Password for the Gmail mail helper |
+| `GMAIL_USER` | Required for email | Gmail account used to send application email |
+| `GMAIL_APP_PASSWORD` | Required for email | Google App Password for Gmail SMTP |
+| `MAIL_FROM` | Optional | Sender alias configured in Gmail |
 | `CRON_SECRET` | Required on Vercel | Protects the scheduled emergency-board cleanup endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
-Copy `.env.example` to `.env` and keep `.env` private. Without a Resend API key, production mail is recorded in the `email_outbox` table and the interface reports it as queued. `server/lib/test.js` uses Gmail when its Gmail credentials are configured; use a Google App Password rather than your account password.
+Copy `.env.example` to `.env` and keep `.env` private. When Gmail SMTP credentials are missing or mail delivery fails, messages are recorded in the `email_outbox` table.
 
 ## Demo Accounts
 
@@ -235,7 +236,7 @@ Emergency board posts older than 30 days are removed once per day by the Vercel 
 
 ### Deploying to Vercel
 
-The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, plus `RESEND_API_KEY` and `MAIL_FROM` if email delivery is required. Use a random `CRON_SECRET` with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
+The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, `GMAIL_USER`, and `GMAIL_APP_PASSWORD`; configure `MAIL_FROM` only if the address is a Gmail send-as alias. Use a random `CRON_SECRET` with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
 
 Before using the app, run `npm run db:setup` once against the same database configured in Vercel. After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
 
@@ -253,7 +254,7 @@ Do not use the system to replace professional medical advice, hospital screening
 ## Known Limitations
 
 - A registered donor's address may be inaccurate because email ownership is not currently verified.
-- Email delivery requires `RESEND_API_KEY` and a verified `MAIL_FROM`.
+- Email delivery requires `GMAIL_USER` and a Google App Password in `GMAIL_APP_PASSWORD`.
 - The search radius is fixed at 10 km and cannot be adjusted by seekers.
 - If geocoding fails, the server rejects the search instead of falling back to a coarse district centroid.
 - Demo data is fictional and must not be used for real medical requests.

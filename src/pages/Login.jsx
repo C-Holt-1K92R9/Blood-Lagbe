@@ -28,7 +28,11 @@ export default function Login() {
     setBusy(true)
     setServerError('')
     try {
-      await login(email, password)
+      const result = await login(email, password)
+      if (result.verificationRequired) {
+        navigate('/verify-email', { replace: true, state: { email: result.email, needsSend: true } })
+        return
+      }
       navigate(target, { replace: true })
     } catch (err) {
       const mapped = fieldErrors(err)

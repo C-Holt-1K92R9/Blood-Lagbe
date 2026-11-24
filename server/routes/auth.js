@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { randomInt } from 'node:crypto'
 import { query } from '../db.js'
 import { asyncRoute, HttpError } from '../lib/http.js'
 import {
@@ -14,6 +15,7 @@ import {
 } from '../lib/auth.js'
 import { resolveCoordinates } from '../lib/geo.js'
 import { publicDonor, requireDonor, todayIso } from '../lib/session.js'
+import { sendMail } from '../lib/mail.js'
 import { rateLimit } from '../lib/ratelimit.js'
 import * as v from '../lib/validate.js'
 
@@ -42,6 +44,44 @@ async function createSession(res, donorId) {
   setSessionCookie(res, token)
 }
 
+function verificationMessage(code) {
+  return {
+    subject: 'Verify your Donor Koi account',
+    text: [
+      `Your Donor Koi verification code is ${code}.`,
+      '',
+      'This code expires in 5 minutes. If you did not request it, you can ignore this email.',
+    ].join('\n'),
+    html: `<!doctype html>
+<html><body style="margin:0;padding:24px;background:#fafaf8;font-family:Arial,Helvetica,sans-serif;color:#141414;">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e8e6e1;border-radius:16px;">
+    <tr><td style="padding:28px;">
+      <p style="margin:0;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#d92d20;font-weight:700;">Donor Koi</p>
+      <h1 style="margin:12px 0;font-size:22px;line-height:1.3;">Verify your email address</h1>
+      <p style="font-size:15px;line-height:1.6;">Enter this code to finish creating your donor account:</p>
+      <p style="margin:20px 0;padding:16px;border-radius:12px;background:#fafaf8;text-align:center;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;">${code}</p>
+      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 5 minutes. If you did not request it, you can ignore this email.</p>
+    </td></tr>
+  </table>
+</body></html>`,
+  }
+}
+
+async function sendVerificationCode(email) {
+  const code = randomInt(0, 1_000_000)
+  const { rows } = await query(
+    `update donors
+        set OTP = $2, otp_expires_at = now() + interval '5 minutes', updated_at = now()
+      where lower(email) = $1 and varified = false
+      returning otp_expires_at`,
+    [email, code],
+  )
+  if (!rows[0]) throw new HttpError(404, 'No unverified donor account was found for this email.')
+
+  const result = await sendMail({ to: email, ...verificationMessage(String(code).padStart(6, '0')) })
+  return { emailStatus: result.status, expiresAt: rows[0].otp_expires_at }
+}
+
 router.post(
   '/register',
   rateLimit({ scope: 'register', max: 8, windowMs: 60_000 }),
@@ -52,9 +92,10 @@ router.post(
     }
 
     const name = v.text(body.name, 'Full name', { min: 2, max: 80 })
-    const email = v.email(body.email)
+    const email = v.registrationEmail(body.email)
     const phone = v.phone(body.phone)
     const passwordHash = hashPassword(v.password(body.password))
+    const otp = randomInt(0, 1_000_000)
     const { bloodGroup, donationType, lastDonated } = readDonationFields(body)
     const division = v.division(body.division)
     const city = v.city(division, body.city)
@@ -74,8 +115,8 @@ router.post(
       const { rows } = await query(
         `insert into donors
            (name, email, phone, password_hash, blood_group, donation_type, last_donated,
-            division, city, address_text, lat, lng, location_source, available)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            division, city, address_text, lat, lng, location_source, available, varified, otp, otp_expires_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,$15,now() + interval '5 minutes')
          returning *`,
         [
           name,
@@ -92,6 +133,7 @@ router.post(
           coords.lng,
           coords.source,
           available,
+          otp,
         ],
       )
       donor = rows[0]
@@ -104,8 +146,53 @@ router.post(
       throw err
     }
 
+    const delivery = await sendMail({
+      to: email,
+      ...verificationMessage(String(otp).padStart(6, '0')),
+    })
+    res.status(201).json({
+      verificationRequired: true,
+      email,
+      emailStatus: delivery.status,
+      expiresAt: donor.otp_expires_at,
+    })
+  }),
+)
+
+router.post(
+  '/verify-email/resend',
+  rateLimit({ scope: 'verification-resend', max: 3, windowMs: 5 * 60_000 }),
+  asyncRoute(async (req, res) => {
+    const email = v.registrationEmail(req.body?.email)
+    const result = await sendVerificationCode(email)
+    res.json(result)
+  }),
+)
+
+router.post(
+  '/verify-email',
+  rateLimit({ scope: 'verification-attempt', max: 8, windowMs: 5 * 60_000 }),
+  asyncRoute(async (req, res) => {
+    const email = v.registrationEmail(req.body?.email)
+    const code = typeof req.body?.code === 'string' ? req.body.code : ''
+    if (!/^\d{6}$/.test(code)) throw new HttpError(400, 'Enter the 6-digit verification code.')
+
+    const { rows } = await query(
+      `update donors
+          set varified = true, otp = null, otp_expires_at = null, updated_at = now()
+        where lower(email) = $1
+          and varified = false
+          and otp = $2
+          and otp_expires_at > now()
+        returning *`,
+      [email, Number(code)],
+    )
+    const donor = rows[0]
+    if (!donor) throw new HttpError(400, 'That code is incorrect or has expired.')
+
+    await query(`delete from sessions where donor_id = $1`, [donor.id])
     await createSession(res, donor.id)
-    res.status(201).json({ donor: publicDonor(donor) })
+    res.json({ donor: publicDonor(donor) })
   }),
 )
 
@@ -121,6 +208,10 @@ router.post(
     const donor = rows[0]
     if (!donor || !verifyPassword(password, donor.password_hash)) {
       throw new HttpError(401, 'Email or password is incorrect.')
+    }
+
+    if (!donor.varified) {
+      return res.json({ verificationRequired: true, email: donor.email })
     }
 
     await createSession(res, donor.id)

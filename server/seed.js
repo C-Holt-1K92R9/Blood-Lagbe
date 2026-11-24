@@ -47,8 +47,8 @@ for (const [name, email, phone, bloodGroup, donationType, lastDonated, division,
   await query(
     `insert into donors
        (name, email, phone, password_hash, blood_group, donation_type, last_donated,
-        division, city, address_text, lat, lng, location_source, available)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'gps',true)`,
+        division, city, address_text, lat, lng, location_source, available, varified)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'gps',true,true)`,
     [name, email, phone, passwordHash, bloodGroup, donationType, lastDonated, division, city, addressText, lat, lng],
   )
 }

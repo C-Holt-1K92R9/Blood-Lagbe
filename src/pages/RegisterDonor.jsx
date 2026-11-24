@@ -5,6 +5,7 @@ import { BLOOD_GROUPS, DONATION_TYPES } from '../data.js'
 import { useAuth } from '../lib/session.jsx'
 import { fieldErrors } from '../lib/api.js'
 import { isBdMobile } from '../lib/phone.js'
+import { isApprovedEmail } from '../../shared/email.js'
 import {
   DivisionCityFields,
   FormAlert,
@@ -49,7 +50,9 @@ export default function RegisterDonor() {
   const validate = () => {
     const next = {}
     if (form.name.trim().length < 2) next.name = 'Enter your full name.'
-    if (!EMAIL_RE.test(form.email.trim())) next.email = 'Enter a valid email address.'
+    const normalizedEmail = form.email.trim().toLowerCase()
+    if (!EMAIL_RE.test(normalizedEmail)) next.email = 'Enter a valid email address.'
+    else if (!isApprovedEmail(normalizedEmail)) next.email = 'Use a Gmail, Yahoo, or Outlook email address.'
     if (!isBdMobile(form.phone)) {
       next.phone = 'Enter a Bangladeshi mobile number, e.g. 01712 345678 or +8801712 345678.'
     }
@@ -69,9 +72,9 @@ export default function RegisterDonor() {
     setPhase('submitting')
     setServerError('')
     try {
-      await register({
+      const result = await register({
         name: form.name,
-        email: form.email,
+        email: normalizedEmail,
         phone: form.phone,
         password: form.password,
         bloodGroup: form.bloodGroup,
@@ -85,7 +88,10 @@ export default function RegisterDonor() {
         lat: coords?.lat,
         lng: coords?.lng,
       })
-      navigate('/donor?welcome=1', { replace: true })
+      navigate('/verify-email', {
+        replace: true,
+        state: { email: result.email, emailStatus: result.emailStatus, expiresAt: result.expiresAt },
+      })
     } catch (err) {
       const mapped = fieldErrors(err)
       setErrors(mapped)
@@ -178,7 +184,7 @@ export default function RegisterDonor() {
                 onChange={set('email')}
                 error={errors.email}
                 placeholder="name@example.com"
-                hint="Requests and account notices arrive here."
+                hint="Use Gmail, Yahoo or Outlook. We’ll send a 6-digit code to verify this address."
               />
               <TextField
                 id="phone"

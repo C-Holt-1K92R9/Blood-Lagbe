@@ -21,8 +21,14 @@ create table if not exists donors (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   varified        BOOLEAN NOT NULL DEFAULT false,
-  OTP             INTEGER
+  OTP             INTEGER,
+  otp_expires_at  timestamptz
 );
+
+alter table donors add column if not exists varified boolean not null default false;
+alter table donors add column if not exists otp integer;
+alter table donors add column if not exists otp_expires_at timestamptz;
+update donors set varified = true where varified = false and otp is null;
 
 create unique index if not exists donors_email_key on donors (lower(email));
 create index if not exists donors_match_idx on donors (blood_group, donation_type, city);

@@ -7,6 +7,7 @@ import Landing from './pages/Landing.jsx'
 import FindBlood from './pages/FindBlood.jsx'
 import RegisterDonor from './pages/RegisterDonor.jsx'
 import Login from './pages/Login.jsx'
+import VerifyEmail from './pages/VerifyEmail.jsx'
 import DonorDashboard from './pages/DonorDashboard.jsx'
 import Emergency from './pages/Emergency.jsx'
 import { DonationDisclaimer, Privacy, Terms } from './pages/Legal.jsx'
@@ -17,6 +18,7 @@ const TITLES = {
   '/find': 'Find a blood donor | Donor Koi',
   '/register': 'Become a blood or plasma donor | Donor Koi',
   '/login': 'Donor sign in | Donor Koi',
+  '/verify-email': 'Verify your email | Donor Koi',
   '/donor': 'Your donor page | Donor Koi',
   '/emergency': 'Emergency blood board | Donor Koi',
   '/privacy': 'Privacy policy | Donor Koi',
@@ -53,6 +55,7 @@ export default function App() {
             <Route path="/find" element={<FindBlood />} />
             <Route path="/register" element={<RegisterDonor />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/donor" element={<DonorDashboard />} />
             <Route path="/emergency" element={<Emergency />} />
             <Route path="/privacy" element={<Privacy />} />

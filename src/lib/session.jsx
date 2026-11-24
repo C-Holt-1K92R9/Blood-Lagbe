@@ -28,17 +28,27 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const data = await api('/login', { method: 'POST', body: { email, password } })
+    if (data.verificationRequired) return data
+    authVersion.current += 1
+    setDonor(data.donor)
+    return data
+  }, [])
+
+  const register = useCallback(async (payload) => {
+    return api('/register', { method: 'POST', body: payload })
+  }, [])
+
+  const verifyEmail = useCallback(async (email, code) => {
+    const data = await api('/verify-email', { method: 'POST', body: { email, code } })
     authVersion.current += 1
     setDonor(data.donor)
     return data.donor
   }, [])
 
-  const register = useCallback(async (payload) => {
-    const data = await api('/register', { method: 'POST', body: payload })
-    authVersion.current += 1
-    setDonor(data.donor)
-    return data.donor
-  }, [])
+  const resendVerificationCode = useCallback(
+    (email) => api('/verify-email/resend', { method: 'POST', body: { email } }),
+    [],
+  )
 
   const logout = useCallback(async () => {
     await api('/logout', { method: 'POST' })
@@ -63,8 +73,21 @@ export function AuthProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ donor, loading, refresh, login, register, logout, update, updateLocation, remove, setDonor }),
-    [donor, loading, refresh, login, register, logout, update, updateLocation, remove],
+    () => ({
+      donor,
+      loading,
+      refresh,
+      login,
+      register,
+      verifyEmail,
+      resendVerificationCode,
+      logout,
+      update,
+      updateLocation,
+      remove,
+      setDonor,
+    }),
+    [donor, loading, refresh, login, register, verifyEmail, resendVerificationCode, logout, update, updateLocation, remove],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

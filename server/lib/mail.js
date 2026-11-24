@@ -2,9 +2,9 @@ import '../env.js'
 import nodemailer from 'nodemailer'
 import { query } from '../db.js'
 
-const GMAIL_USER = process.env.USER
-const GMAIL_APP_PASSWORD = process.env.PASS
-const FROM = process.env.GMAIL_FROM
+const GMAIL_USER = process.env.GMAIL_USER || process.env.USER
+const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || process.env.PASS || '').replace(/\s/g, '')
+const FROM = process.env.GMAIL_FROM || process.env.MAIL_FROM || (GMAIL_USER ? `Donor Koi <${GMAIL_USER}>` : undefined)
 
 export function mailMode() {
   return GMAIL_USER && GMAIL_APP_PASSWORD ? 'gmail' : 'outbox'
