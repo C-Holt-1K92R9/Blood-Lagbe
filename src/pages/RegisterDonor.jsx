@@ -47,10 +47,11 @@ export default function RegisterDonor() {
     setErrors((err) => ({ ...err, [key]: undefined }))
   }
 
+  const normalizedEmail = form.email.trim().toLowerCase()
+
   const validate = () => {
     const next = {}
     if (form.name.trim().length < 2) next.name = 'Enter your full name.'
-    const normalizedEmail = form.email.trim().toLowerCase()
     if (!EMAIL_RE.test(normalizedEmail)) next.email = 'Enter a valid email address.'
     else if (!isApprovedEmail(normalizedEmail)) next.email = 'Use a Gmail, Yahoo, or Outlook email address.'
     if (!isBdMobile(form.phone)) {
