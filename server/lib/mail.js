@@ -10,7 +10,7 @@ export function mailMode() {
   return GMAIL_USER && GMAIL_APP_PASSWORD ? 'gmail' : 'outbox'
 }
 
-export async function sendMail({ to, bcc, subject, text, html }) {
+export async function sendMail({ to, bcc, subject, text, html, attachments }) {
   const bccRecipients = Array.isArray(bcc) ? bcc.filter(Boolean) : []
   const outboxTo = bccRecipients.length ? bccRecipients.join(', ') : to
   const recipientLabel = bccRecipients.length ? `${bccRecipients.length} BCC recipients` : to
@@ -40,6 +40,7 @@ export async function sendMail({ to, bcc, subject, text, html }) {
         subject,
         text,
         html,
+        ...(attachments?.length ? { attachments } : {}),
       })
       status = 'sent'
       providerId = info.messageId || null

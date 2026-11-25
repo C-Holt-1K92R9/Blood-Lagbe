@@ -148,6 +148,7 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | `GMAIL_APP_PASSWORD` | Required for email | Google App Password for Gmail SMTP |
 | `MAIL_FROM` | Optional | Sender alias configured in Gmail |
 | `CRON_SECRET` | Required on Vercel | Protects the scheduled emergency-board cleanup endpoint |
+| `FEEDBACK_EXPORT_SECRET` | Required for feedback exports | Bearer secret protecting the feedback CSV email endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
@@ -215,6 +216,7 @@ The seed also creates three public emergency board posts.
 | `POST` | `/api/emergency` | Create an emergency post |
 | `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
 | `POST` | `/api/contact` | Store a contact feedback submission |
+| `POST` | `/api/contact/export` | Email all feedback as a CSV to the configured project owner; requires `FEEDBACK_EXPORT_SECRET` |
 
 Donor authentication uses an httpOnly `bl_session` cookie with a 30-day lifetime and `SameSite=Lax`. Passwords are hashed with scrypt. Sessions are stored in PostgreSQL, so changing a password or signing out can revoke existing sessions.
 
@@ -247,7 +249,7 @@ Expired requests are removed before each application database query. The Vercel 
 
 ### Deploying to Vercel
 
-The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, `GMAIL_USER`, and `GMAIL_APP_PASSWORD`; configure `MAIL_FROM` only if the address is a Gmail send-as alias. Use a random `CRON_SECRET` with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
+The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, `FEEDBACK_EXPORT_SECRET`, `GMAIL_USER`, and `GMAIL_APP_PASSWORD`; configure `MAIL_FROM` only if the address is a Gmail send-as alias. Use random secrets with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
 
 Before using the app, run `npm run db:setup` once against the same database configured in Vercel. After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
 
