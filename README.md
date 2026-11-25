@@ -19,8 +19,9 @@ The project is free for seekers and designed to keep the search process simple: 
 - Email scheduled requests to eligible donors
 - Register and manage a donor profile
 - Update availability and record the latest donation
+- Reset a forgotten password using a time-limited email code
 - Post and close public emergency requests
-- Send feedback through the contact page, saved to the database
+- Send categorized feedback through the contact page, saved to the database
 - Automatically delete emergency posts and scheduled requests after their needed time passes
 - Use password-authenticated donor accounts with 30-day sessions
 - Run the React client and Express API together in development and production
@@ -183,6 +184,7 @@ The seed also creates three public emergency board posts.
 | `/find` | Blood and plasma request form and donor results |
 | `/register` | Donor registration |
 | `/login` | Donor sign-in |
+| `/forgot-password` | Reset a donor password by email code |
 | `/donor` | Donor profile and received requests |
 | `/emergency` | Public emergency board |
 | `/contact` | Contact details and feedback form |
@@ -198,6 +200,8 @@ The seed also creates three public emergency board posts.
 | `GET` | `/api/cleanup-board` | Delete emergency board posts older than 30 days; requires `CRON_SECRET` |
 | `POST` | `/api/register` | Create a donor account and session |
 | `POST` | `/api/login` | Sign in a donor |
+| `POST` | `/api/forgot-password` | Send a time-limited password reset code |
+| `POST` | `/api/reset-password` | Reset a password and revoke existing sessions |
 | `POST` | `/api/logout` | End the current session |
 | `GET` | `/api/me` | Get the current donor |
 | `PATCH` | `/api/me` | Update profile and availability |
@@ -252,8 +256,7 @@ Before using the app, run `npm run db:setup` once against the same database conf
 - Public emergency posts expose phone numbers and selected location details.
 - Close tokens are browser-local secrets for managing emergency posts.
 - Donor coordinates are not publicly disclosed.
-- No email verification or OTP is currently implemented.
-- There is no forgotten-password flow. Signed-in users can change their password from the donor page.
+- Password reset uses a six-digit email code that expires after five minutes and revokes existing sessions.
 - Emergency posts can be closed by the browser that created them, are deleted when their requested time passes, and are also removed after 30 days.
 
 Do not use the system to replace professional medical advice, hospital screening, blood-bank procedures, or emergency services.

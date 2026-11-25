@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { CheckCircle, EnvelopeSimple, PaperPlaneTilt } from '@phosphor-icons/react'
-import { FormAlert, TextAreaField, TextField } from '../components/Form.jsx'
+import { FormAlert, SelectField, TextAreaField, TextField } from '../components/Form.jsx'
 import { api, fieldErrors } from '../lib/api.js'
 
-const emptyForm = { name: '', email: '', message: '' }
+const emptyForm = { name: '', email: '', feedbackType: '', message: '' }
 
 export default function Contact() {
   const [form, setForm] = useState(emptyForm)
@@ -31,6 +31,17 @@ export default function Contact() {
       setSubmitted(true)
     } catch (error) {
       const mapped = fieldErrors(error)
+      const aliases = {
+        'Your name': 'name',
+        'Your email': 'email',
+        'Your feedback': 'message',
+      }
+      for (const [label, field] of Object.entries(aliases)) {
+        if (mapped[label]) {
+          mapped[field] = mapped[label]
+          delete mapped[label]
+        }
+      }
       setErrors(mapped)
       if (Object.keys(mapped).length === 0) setServerError(error.message)
     } finally {
@@ -75,6 +86,18 @@ export default function Contact() {
                 autoComplete="email"
                 maxLength={254}
               />
+              <SelectField
+                label="Type of feedback"
+                required
+                value={form.feedbackType}
+                onChange={set('feedbackType')}
+                error={errors.feedbackType}
+              >
+                <option value="">Choose a feedback type</option>
+                <option value="complaint">Complaint</option>
+                <option value="suggestion">Suggestion</option>
+                <option value="other">Other feedback</option>
+              </SelectField>
               <TextAreaField
                 label="Your feedback"
                 required

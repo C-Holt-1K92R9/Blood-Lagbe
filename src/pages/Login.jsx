@@ -105,9 +105,18 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="password" className="title-4 mb-2 block">
-                Password
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="password" className="title-4">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  state={{ email }}
+                  className="caption-5 text-brand underline underline-offset-4 hover:text-brand-hover"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"
@@ -127,6 +136,11 @@ export default function Login() {
                 </p>
               )}
             </div>
+            {location.state?.passwordReset && (
+              <p className="caption-2 text-good" role="status">
+                Your password has been reset. Sign in with your new password.
+              </p>
+            )}
           </div>
 
           <button

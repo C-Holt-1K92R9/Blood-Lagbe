@@ -118,11 +118,16 @@ create index if not exists emergency_needed_idx on emergency_posts (needed_at)
 create unique index if not exists emergency_close_token_key on emergency_posts (close_token) where close_token is not null;
 
 create table if not exists contact_feedback (
-  id         bigserial primary key,
-  name       text not null,
-  email      text not null,
-  message    text not null,
-  created_at timestamptz not null default now()
+  id           bigserial primary key,
+  name         text not null,
+  email        text not null,
+  feedback_type text not null default 'other'
+    check (feedback_type in ('complaint','suggestion','other')),
+  message      text not null,
+  created_at   timestamptz not null default now()
 );
+
+alter table contact_feedback add column if not exists feedback_type text not null default 'other'
+  check (feedback_type in ('complaint','suggestion','other'));
 
 create index if not exists contact_feedback_created_idx on contact_feedback (created_at desc);

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { randomInt } from 'node:crypto'
-import { query } from '../db.js'
+import { query, withTransaction } from '../db.js'
 import { asyncRoute, HttpError } from '../lib/http.js'
 import {
   clearSessionCookie,
@@ -82,6 +82,29 @@ async function sendVerificationCode(email) {
   return { emailStatus: result.status, expiresAt: rows[0].otp_expires_at }
 }
 
+function passwordResetMessage(code) {
+  return {
+    subject: 'Reset your Donor Koi password',
+    text: [
+      `Your Donor Koi password reset code is ${code}.`,
+      '',
+      'This code expires in 5 minutes. If you did not request a password reset, you can ignore this email.',
+    ].join('\n'),
+    html: `<!doctype html>
+<html><body style="margin:0;padding:24px;background:#fafaf8;font-family:Arial,Helvetica,sans-serif;color:#141414;">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e8e6e1;border-radius:16px;">
+    <tr><td style="padding:28px;">
+      <p style="margin:0;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#d92d20;font-weight:700;">Donor Koi</p>
+      <h1 style="margin:12px 0;font-size:22px;line-height:1.3;">Reset your password</h1>
+      <p style="font-size:15px;line-height:1.6;">Enter this code to choose a new password:</p>
+      <p style="margin:20px 0;padding:16px;border-radius:12px;background:#fafaf8;text-align:center;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;">${code}</p>
+      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 5 minutes. If you did not request a password reset, you can ignore this email.</p>
+    </td></tr>
+  </table>
+</body></html>`,
+  }
+}
+
 router.post(
   '/register',
   rateLimit({ scope: 'register', max: 8, windowMs: 60_000 }),
@@ -156,6 +179,59 @@ router.post(
       emailStatus: delivery.status,
       expiresAt: donor.otp_expires_at,
     })
+  }),
+)
+
+router.post(
+  '/forgot-password',
+  rateLimit({ scope: 'forgot-password', max: 5, windowMs: 15 * 60_000 }),
+  asyncRoute(async (req, res) => {
+    const email = v.email(req.body?.email)
+    const code = randomInt(0, 1_000_000)
+    const { rows } = await query(
+      `update donors
+          set otp = $2, otp_expires_at = now() + interval '5 minutes', updated_at = now()
+        where lower(email) = $1 and varified = true
+        returning email`,
+      [email, code],
+    )
+
+    if (rows[0]) {
+      await sendMail({ to: rows[0].email, ...passwordResetMessage(String(code).padStart(6, '0')) })
+    }
+
+    res.json({ message: 'If a verified account exists for that email, a password reset code has been sent.' })
+  }),
+)
+
+router.post(
+  '/reset-password',
+  rateLimit({ scope: 'reset-password', max: 8, windowMs: 15 * 60_000 }),
+  asyncRoute(async (req, res) => {
+    const email = v.email(req.body?.email)
+    const code = typeof req.body?.code === 'string' ? req.body.code : ''
+    if (!/^\d{6}$/.test(code)) throw new HttpError(400, 'Enter the 6-digit password reset code.', { field: 'code' })
+    const passwordHash = hashPassword(v.password(req.body?.password))
+
+    const donor = await withTransaction(async (client) => {
+      const { rows } = await client.query(
+        `update donors
+            set password_hash = $3, otp = null, otp_expires_at = null, updated_at = now()
+          where lower(email) = $1
+            and varified = true
+            and otp = $2
+            and otp_expires_at > now()
+          returning id`,
+        [email, Number(code), passwordHash],
+      )
+      if (!rows[0]) return null
+
+      await client.query(`delete from sessions where donor_id = $1`, [rows[0].id])
+      return rows[0]
+    })
+
+    if (!donor) throw new HttpError(400, 'That code is incorrect or has expired.', { field: 'code' })
+    res.json({ ok: true })
   }),
 )
 
@@ -342,7 +418,12 @@ router.post(
       throw new HttpError(400, 'Current password is incorrect.', { field: 'currentPassword' })
     }
     const next = hashPassword(v.password(req.body?.newPassword))
-    await query(`update donors set password_hash = $2, updated_at = now() where id = $1`, [req.donor.id, next])
+    await query(
+      `update donors
+          set password_hash = $2, otp = null, otp_expires_at = null, updated_at = now()
+        where id = $1`,
+      [req.donor.id, next],
+    )
     await query(`delete from sessions where donor_id = $1`, [req.donor.id])
     await createSession(res, req.donor.id)
     res.json({ ok: true })
