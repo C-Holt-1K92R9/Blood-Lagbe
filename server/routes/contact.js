@@ -8,22 +8,23 @@ import * as v from '../lib/validate.js'
 const router = Router()
 const FEEDBACK_TYPES = ['complaint', 'suggestion', 'other']
 
-router.post(
-  '/export',
-  (req, res, next) => {
-    if (!isAuthorizedFeedbackExport(req)) return next(new HttpError(401, 'Unauthorized.'))
-    next()
-  },
-  rateLimit({ scope: 'feedback-export', max: 2, windowMs: 5 * 60_000 }),
-  asyncRoute(async (req, res) => {
-    const result = await emailFeedbackCsv()
-    if (result.status !== 'sent') {
-      const status = result.status === 'logged' ? 503 : 502
-      throw new HttpError(status, 'The feedback export email could not be sent. Check the email configuration and try again.')
-    }
-    res.json({ sent: true, count: result.count, recipient: result.recipient })
-  }),
-)
+const requireFeedbackExportSecret = (req, res, next) => {
+  if (!isAuthorizedFeedbackExport(req)) return next(new HttpError(401, 'Unauthorized.'))
+  next()
+}
+const feedbackExportRateLimit = rateLimit({ scope: 'feedback-export', max: 2, windowMs: 5 * 60_000 })
+const exportFeedback = asyncRoute(async (req, res) => {
+  const result = await emailFeedbackCsv()
+  if (result.status !== 'sent') {
+    const status = result.status === 'logged' ? 503 : 502
+    throw new HttpError(status, 'The feedback export email could not be sent. Check the email configuration and try again.')
+  }
+  if (req.method === 'HEAD') return res.status(200).end()
+  res.json({ sent: true, count: result.count, recipient: result.recipient })
+})
+
+router.head('/export', requireFeedbackExportSecret, feedbackExportRateLimit, exportFeedback)
+router.post('/export', requireFeedbackExportSecret, feedbackExportRateLimit, exportFeedback)
 
 router.post(
   '/',

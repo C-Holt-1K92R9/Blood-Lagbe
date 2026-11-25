@@ -216,9 +216,11 @@ The seed also creates three public emergency board posts.
 | `POST` | `/api/emergency` | Create an emergency post |
 | `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
 | `POST` | `/api/contact` | Store a contact feedback submission |
-| `POST` | `/api/contact/export` | Email all feedback as a CSV to the configured project owner; requires `FEEDBACK_EXPORT_SECRET` |
+| `HEAD` or `POST` | `/api/contact/export` | Email all feedback as a CSV to the configured project owner; requires `FEEDBACK_EXPORT_SECRET` |
 
 Donor authentication uses an httpOnly `bl_session` cookie with a 30-day lifetime and `SameSite=Lax`. Passwords are hashed with scrypt. Sessions are stored in PostgreSQL, so changing a password or signing out can revoke existing sessions.
+
+Both methods trigger a new export email on every call. `HEAD` is supported for UptimeRobot monitors; choose the monitor interval with care to avoid repeated emails.
 
 ## Data Model
 
