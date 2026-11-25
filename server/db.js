@@ -24,9 +24,29 @@ pool.on('error', (err) => {
   console.error('[db] idle client error:', err.message)
 })
 
-export const query = (text, params) => pool.query(text, params)
+async function cleanupExpiredRequests() {
+  await pool.query(`
+    do $$
+    begin
+      if to_regclass('public.emergency_posts') is not null then
+        execute 'delete from public.emergency_posts where needed_at is not null and needed_at <= now()';
+      end if;
+      if to_regclass('public.blood_requests') is not null then
+        execute 'delete from public.blood_requests
+                  where situation = ''later'' and needed_at is not null and needed_at <= now()';
+      end if;
+    end;
+    $$
+  `)
+}
+
+export async function query(text, params) {
+  await cleanupExpiredRequests()
+  return pool.query(text, params)
+}
 
 export async function withTransaction(fn) {
+  await cleanupExpiredRequests()
   const client = await pool.connect()
   try {
     await client.query('begin')

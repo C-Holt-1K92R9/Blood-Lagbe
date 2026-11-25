@@ -10,6 +10,7 @@ import Login from './pages/Login.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
 import DonorDashboard from './pages/DonorDashboard.jsx'
 import Emergency from './pages/Emergency.jsx'
+import Contact from './pages/Contact.jsx'
 import { DonationDisclaimer, Privacy, Terms } from './pages/Legal.jsx'
 import NotFound from './pages/NotFound.jsx'
 
@@ -21,6 +22,7 @@ const TITLES = {
   '/verify-email': 'Verify your email | Donor Koi',
   '/donor': 'Your donor page | Donor Koi',
   '/emergency': 'Emergency blood board | Donor Koi',
+  '/contact': 'Contact & feedback | Donor Koi',
   '/privacy': 'Privacy policy | Donor Koi',
   '/terms': 'Terms & Conditions | Donor Koi',
   '/donation-disclaimer': 'Donation disclaimer | Donor Koi',
@@ -58,6 +60,7 @@ export default function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/donor" element={<DonorDashboard />} />
             <Route path="/emergency" element={<Emergency />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/donation-disclaimer" element={<DonationDisclaimer />} />

@@ -7,6 +7,7 @@ import { useAuth } from '../lib/session.jsx'
 const LINKS = [
   { label: 'Find blood', to: '/find' },
   { label: 'Emergency board', to: '/emergency' },
+  { label: 'Contact', to: '/contact' },
   { label: 'Become a donor', to: '/register' },
 ]
 

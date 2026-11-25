@@ -145,8 +145,8 @@ export function Privacy() {
         </p>
         <p>
           To ask about or request removal of a blood-search record or board post, email{' '}
-          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@bloodlagbe.com.bd">
-            trust@bloodlagbe.com.bd
+          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@donorkoi.2bd.net">
+            trust@donorkoi.2bd.net
           </a>{' '}
           and include its public reference if you have it. Do not send passwords, identity documents or additional
           medical details in your message.
@@ -245,8 +245,8 @@ export function Terms() {
         <p>
           A private close token is stored in the browser that created the post and is required to close it. Do not share
           that token. If you lose it, contact{' '}
-          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@bloodlagbe.com.bd">
-            trust@bloodlagbe.com.bd
+          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@donorkoi.2bd.net">
+            trust@donorkoi.2bd.net
           </a>{' '}
           with the post reference.
         </p>
@@ -314,8 +314,8 @@ export function Terms() {
           We may update these terms as the service changes. Continued use after an update means you accept the revised
           terms. The updated date at the top identifies the current version. For concerns about a request, post or
           misuse, contact{' '}
-          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@bloodlagbe.com.bd">
-            trust@bloodlagbe.com.bd
+          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@donorkoi.2bd.net">
+            trust@donorkoi.2bd.net
           </a>.
         </p>
       </Section>
@@ -369,8 +369,8 @@ export function DonationDisclaimer() {
         <p>
           If someone solicits payment or you suspect fraud or coercion, do not proceed. Contact the hospital and report
           the concern to{' '}
-          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@bloodlagbe.com.bd">
-            trust@bloodlagbe.com.bd
+          <a className="font-medium text-strong underline underline-offset-4" href="mailto:trust@donorkoi.2bd.net">
+            trust@donorkoi.2bd.net
           </a>.
         </p>
       </Section>

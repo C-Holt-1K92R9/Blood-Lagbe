@@ -20,6 +20,8 @@ The project is free for seekers and designed to keep the search process simple: 
 - Register and manage a donor profile
 - Update availability and record the latest donation
 - Post and close public emergency requests
+- Send feedback through the contact page, saved to the database
+- Automatically delete emergency posts and scheduled requests after their needed time passes
 - Use password-authenticated donor accounts with 30-day sessions
 - Run the React client and Express API together in development and production
 
@@ -183,6 +185,7 @@ The seed also creates three public emergency board posts.
 | `/login` | Donor sign-in |
 | `/donor` | Donor profile and received requests |
 | `/emergency` | Public emergency board |
+| `/contact` | Contact details and feedback form |
 | `/privacy` | Privacy policy |
 | `/terms` | Terms and conditions |
 | `/donation-disclaimer` | Donation disclaimer |
@@ -207,6 +210,7 @@ The seed also creates three public emergency board posts.
 | `GET` | `/api/emergency` | List open emergency posts |
 | `POST` | `/api/emergency` | Create an emergency post |
 | `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
+| `POST` | `/api/contact` | Store a contact feedback submission |
 
 Donor authentication uses an httpOnly `bl_session` cookie with a 30-day lifetime and `SameSite=Lax`. Passwords are hashed with scrypt. Sessions are stored in PostgreSQL, so changing a password or signing out can revoke existing sessions.
 
@@ -220,6 +224,9 @@ The main database tables are:
 - `request_notifications`
 - `email_outbox`
 - `emergency_posts`
+- `contact_feedback`
+
+Expired emergency posts and scheduled blood requests are deleted before each application database query. The database schema indexes their requested times so this cleanup stays efficient.
 
 See [server/schema.sql](server/schema.sql) for constraints, indexes, and relations.
 
@@ -232,7 +239,7 @@ See [server/schema.sql](server/schema.sql) for constraints, indexes, and relatio
 5. Start the app with `npm start`.
 6. Set `NODE_ENV=production` when using HTTPS. The session cookie then receives the `Secure` flag.
 
-Emergency board posts older than 30 days are removed once per day by the Vercel scheduled cleanup.
+Expired requests are removed before each application database query. The Vercel scheduled cleanup also removes emergency board posts older than 30 days.
 
 ### Deploying to Vercel
 
@@ -247,7 +254,7 @@ Before using the app, run `npm run db:setup` once against the same database conf
 - Donor coordinates are not publicly disclosed.
 - No email verification or OTP is currently implemented.
 - There is no forgotten-password flow. Signed-in users can change their password from the donor page.
-- Emergency posts can be closed by the browser that created them and are automatically deleted after 30 days.
+- Emergency posts can be closed by the browser that created them, are deleted when their requested time passes, and are also removed after 30 days.
 
 Do not use the system to replace professional medical advice, hospital screening, blood-bank procedures, or emergency services.
 

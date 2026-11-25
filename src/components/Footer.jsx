@@ -30,6 +30,7 @@ export default function Footer() {
               <li><Link to="/find" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Find blood</Link></li>
               <li><Link to="/emergency" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Emergency board</Link></li>
               <li><Link to="/register" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Become a donor</Link></li>
+              <li><Link to="/contact" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Contact &amp; feedback</Link></li>
               <li><Link to="/login" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Donor sign in</Link></li>
             </ul>
           </nav>

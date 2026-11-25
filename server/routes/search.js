@@ -78,7 +78,7 @@ function emailHtml({ request }) {
       <p style="margin:22px 0 0;">
         <a href="tel:${esc(phoneHref)}" style="display:inline-block;background:#d92d20;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;">Call ${esc(request.requester_name)}</a>
       </p>
-      <p style="margin:22px 0 0;font-size:12px;line-height:1.6;color:#6e6a61;">Donation is voluntary and unpaid. Never accept money or gifts for a donation. If this request looks suspicious, write to trust@bloodlagbe.com.bd.</p>
+      <p style="margin:22px 0 0;font-size:12px;line-height:1.6;color:#6e6a61;">Donation is voluntary and unpaid. Never accept money or gifts for a donation. If this request looks suspicious, write to trust@donorkoi.2bd.net.</p>
     </td></tr>
   </table>
 </body></html>`

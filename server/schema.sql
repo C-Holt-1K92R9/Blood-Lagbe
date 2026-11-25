@@ -21,7 +21,7 @@ create table if not exists donors (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   varified        BOOLEAN NOT NULL DEFAULT false,
-  OTP             INTEGER,
+  otp             INTEGER,
   otp_expires_at  timestamptz
 );
 
@@ -65,6 +65,8 @@ create table if not exists blood_requests (
 
 create index if not exists requests_created_idx on blood_requests (created_at desc);
 create index if not exists requests_city_idx on blood_requests (city);
+create index if not exists requests_expiry_idx on blood_requests (needed_at)
+  where situation = 'later' and needed_at is not null;
 
 create table if not exists request_notifications (
   id         bigserial primary key,
@@ -111,4 +113,16 @@ create table if not exists emergency_posts (
 alter table emergency_posts add column if not exists close_token text;
 
 create index if not exists emergency_created_idx on emergency_posts (created_at desc);
+create index if not exists emergency_needed_idx on emergency_posts (needed_at)
+  where needed_at is not null;
 create unique index if not exists emergency_close_token_key on emergency_posts (close_token) where close_token is not null;
+
+create table if not exists contact_feedback (
+  id         bigserial primary key,
+  name       text not null,
+  email      text not null,
+  message    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists contact_feedback_created_idx on contact_feedback (created_at desc);

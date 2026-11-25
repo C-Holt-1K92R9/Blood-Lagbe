@@ -550,7 +550,7 @@ export default function Emergency() {
 
             <p className="caption-5 mt-3 flex items-start gap-1.5 text-faint">
               <Drop size={13} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-              Never pay for blood. Report paid donors to trust@bloodlagbe.com.bd.
+              Never pay for blood. Report paid donors to trust@donorkoi.2bd.net.
             </p>
           </form>
         </div>
