@@ -213,9 +213,9 @@ The seed also creates three public emergency board posts.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/health` | Database and mail status |
-| `GET` | `/api/process-email-outbox` | Process a bounded batch of queued emails; requires `CRON_SECRET` |
-| `GET` | `/api/process-certificates` | Generate missing donation certificates; requires `CRON_SECRET` |
+| `HEAD` or `GET` | `/api/health` | Database and mail status |
+| `HEAD` or `GET` | `/api/process-email-outbox` | Process a bounded batch of queued emails; requires `CRON_SECRET` |
+| `HEAD` or `GET` | `/api/process-certificates` | Generate missing donation certificates; requires `CRON_SECRET` |
 | `POST` | `/api/register` | Create a donor account and session |
 | `POST` | `/api/login` | Sign in a donor |
 | `POST` | `/api/forgot-password` | Send a time-limited password reset code |
@@ -269,7 +269,7 @@ See [server/schema.sql](server/schema.sql) for constraints, indexes, and relatio
 
 The schema includes durable outbox scheduling and retry fields, donor hold/recovery fields, request action-token fields, opt-in honorary wall visibility, and per-donation certificate tracking. Reapplying `npm run db:setup` is additive and idempotent; historical BCC outbox records are retained as legacy records rather than being automatically re-queued.
 
-Outgoing mail is queued by the API and delivered by `GET /api/process-email-outbox`. Configure a recurring external pinger to call this endpoint with `Authorization: Bearer <CRON_SECRET>`; the worker processes a bounded batch on each call, queues due scheduled-request follow-ups, and creates certificates for confirmed donation events. You can also call `GET /api/process-certificates` from a daily pinger; processing is idempotent, so an event receives only one certificate and email. If no Gmail credential is configured, queued messages remain pending and the outbox endpoint returns `503`.
+Outgoing mail is queued by the API and delivered by `HEAD /api/process-email-outbox`. Configure a recurring external pinger to call this endpoint with `Authorization: Bearer <CRON_SECRET>`; the worker processes a bounded batch on each call, queues due scheduled-request follow-ups, and creates certificates for confirmed donation events. You can also call `HEAD /api/process-certificates` from a daily pinger; processing is idempotent, so an event receives only one certificate and email. If no Gmail credential is configured, queued messages remain pending and the outbox endpoint returns `503`.
 
 See [docs/uptimerobot-scheduled-jobs.md](docs/uptimerobot-scheduled-jobs.md) for UptimeRobot setup, recommended cadence, authentication, and troubleshooting.
 

@@ -4,16 +4,18 @@ import { generateDonationCertificates } from '../lib/certificateWorker.js'
 
 const router = Router()
 
-router.get(
-  '/process-certificates',
-  asyncRoute(async (req, res) => {
-    const secret = process.env.CRON_SECRET
-    if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
-      throw new HttpError(401, 'Unauthorized.')
-    }
+const processCertificates = asyncRoute(async (req, res) => {
+  const secret = process.env.CRON_SECRET
+  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+    throw new HttpError(401, 'Unauthorized.')
+  }
 
-    res.json(await generateDonationCertificates())
-  }),
-)
+  const result = await generateDonationCertificates()
+  if (req.method === 'HEAD') return res.status(200).end()
+  res.json(result)
+})
+
+router.head('/process-certificates', processCertificates)
+router.get('/process-certificates', processCertificates)
 
 export default router
