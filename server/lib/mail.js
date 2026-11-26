@@ -65,24 +65,48 @@ function serializeAttachments(attachments) {
   })
 }
 
-export async function sendMail({ to, bcc, subject, text, html, attachments, priority = 0, scheduledAt }) {
+export async function sendMail({
+  to,
+  bcc,
+  subject,
+  text,
+  html,
+  attachments,
+  priority = 0,
+  scheduledAt,
+  returnIds = false,
+}) {
   const queuedAttachments = serializeAttachments(attachments)
   const scheduledFor = scheduledAt ? new Date(scheduledAt) : new Date()
   if (Number.isNaN(scheduledFor.getTime())) throw new TypeError('The scheduled email time is invalid.')
 
   const queued = await withTransaction((client) =>
-    enqueueMail(client, { to, bcc, subject, text, html, attachments: queuedAttachments, priority, scheduledAt: scheduledFor }),
+    enqueueMail(client, {
+      to,
+      bcc,
+      subject,
+      text,
+      html,
+      attachments: queuedAttachments,
+      priority,
+      scheduledAt: scheduledFor,
+      returnIds,
+    }),
   )
 
   return {
     status: 'logged',
     provider: 'outbox',
-    queued,
+    queued: returnIds ? queued.length : queued,
+    ...(returnIds ? { outboxIds: queued } : {}),
     error: null,
   }
 }
 
-export async function enqueueMail(client, { to, bcc, subject, text, html, attachments, priority = 0, scheduledAt }) {
+export async function enqueueMail(
+  client,
+  { to, bcc, subject, text, html, attachments, priority = 0, scheduledAt, returnIds = false },
+) {
   const recipients = [...new Set([...(Array.isArray(bcc) ? bcc : []), to].filter(Boolean).map(String))]
   if (recipients.length === 0) throw new TypeError('At least one email recipient is required.')
 
@@ -92,15 +116,18 @@ export async function enqueueMail(client, { to, bcc, subject, text, html, attach
   const scheduledFor = scheduledAt ? new Date(scheduledAt) : new Date()
   if (Number.isNaN(scheduledFor.getTime())) throw new TypeError('The scheduled email time is invalid.')
 
+  const ids = []
   for (const recipient of recipients) {
-    await client.query(
+    const { rows } = await client.query(
       `insert into email_outbox
          (to_email, recipient_email, subject, body, body_html, attachments_json,
           provider, status, priority, scheduled_at)
-       values ($1, $1, $2, $3, $4, $5::jsonb, 'gmail', 'PENDING', $6, $7)`,
+       values ($1, $1, $2, $3, $4, $5::jsonb, 'gmail', 'PENDING', $6, $7)
+       returning id`,
       [recipient, subject, text || '', html || null, JSON.stringify(queuedAttachments), priority, scheduledFor],
     )
+    ids.push(rows[0].id)
   }
 
-  return recipients.length
+  return returnIds ? ids : recipients.length
 }

@@ -16,6 +16,7 @@ import {
 import { resolveCoordinates } from '../lib/geo.js'
 import { publicDonor, requireDonor, todayIso } from '../lib/session.js'
 import { sendMail } from '../lib/mail.js'
+import { processEmailOutbox } from '../lib/mailWorker.js'
 import { rateLimit } from '../lib/ratelimit.js'
 import * as v from '../lib/validate.js'
 
@@ -78,8 +79,20 @@ async function sendVerificationCode(email) {
   )
   if (!rows[0]) throw new HttpError(404, 'No unverified donor account was found for this email.')
 
-  const result = await sendMail({ to: email, priority: 100, ...verificationMessage(String(code).padStart(6, '0')) })
-  return { emailStatus: result.status, expiresAt: rows[0].otp_expires_at }
+  const delivery = await sendMail({
+    to: email,
+    priority: 100,
+    returnIds: true,
+    ...verificationMessage(String(code).padStart(6, '0')),
+  })
+  const result = await processEmailOutbox({ emailIds: delivery.outboxIds })
+  return { emailStatus: deliveryStatus(result, delivery.queued), expiresAt: rows[0].otp_expires_at }
+}
+
+function deliveryStatus(result, queued) {
+  if (result.sent === queued) return 'sent'
+  if (result.failed > 0) return 'failed'
+  return 'logged'
 }
 
 function passwordResetMessage(code) {
@@ -172,12 +185,14 @@ router.post(
     const delivery = await sendMail({
       to: email,
       priority: 100,
+      returnIds: true,
       ...verificationMessage(String(otp).padStart(6, '0')),
     })
+    const result = await processEmailOutbox({ emailIds: delivery.outboxIds })
     res.status(201).json({
       verificationRequired: true,
       email,
-      emailStatus: delivery.status,
+      emailStatus: deliveryStatus(result, delivery.queued),
       expiresAt: donor.otp_expires_at,
     })
   }),
@@ -198,7 +213,13 @@ router.post(
     )
 
     if (rows[0]) {
-      await sendMail({ to: rows[0].email, priority: 100, ...passwordResetMessage(String(code).padStart(6, '0')) })
+      const delivery = await sendMail({
+        to: rows[0].email,
+        priority: 100,
+        returnIds: true,
+        ...passwordResetMessage(String(code).padStart(6, '0')),
+      })
+      await processEmailOutbox({ emailIds: delivery.outboxIds })
     }
 
     res.json({ message: 'If a verified account exists for that email, a password reset code has been sent.' })

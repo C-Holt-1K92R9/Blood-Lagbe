@@ -163,7 +163,7 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
-Copy `.env.example` to `.env` and keep `.env` private. SMTP credentials are read from environment variables and never stored in the database. All messages are first recorded individually in `email_outbox`; retryable failures are rescheduled, quota/authentication failures cool down that account and rotate to an available backup, and permanent SMTP failures are marked failed. Verification and password-reset codes are high-priority and expire after 30 minutes.
+Copy `.env.example` to `.env` and keep `.env` private. SMTP credentials are read from environment variables and never stored in the database. All messages are first recorded individually in `email_outbox`; retryable failures are rescheduled, quota/authentication failures cool down that account and rotate to an available backup, and permanent SMTP failures are marked failed. Verification and password-reset codes are high-priority, trigger an immediate delivery attempt rather than waiting for the scheduled worker, and expire after 30 minutes.
 
 ## Demo Accounts
 

@@ -38,7 +38,7 @@ async function ensureCredentialRows(credentials) {
   }
 }
 
-async function claimNextEmail() {
+async function claimNextEmail(emailIds) {
   return withTransaction(async (client) => {
     await client.query(
       `update email_outbox
@@ -56,6 +56,7 @@ async function claimNextEmail() {
            from email_outbox
           where status = 'PENDING'
             and scheduled_at <= now()
+            and ($1::bigint[] is null or id = any($1::bigint[]))
           order by priority desc, scheduled_at, created_at
           limit 1
            for update skip locked
@@ -66,6 +67,7 @@ async function claimNextEmail() {
          from next_email n
         where e.id = n.id
        returning e.*`,
+       [emailIds || null],
     )
     return rows[0] || null
   })
@@ -277,9 +279,9 @@ async function deliverEmail(email, credentials) {
   return updateOutboxFailure(email, lastError)
 }
 
-export async function processEmailOutbox({ batchSize = DEFAULT_BATCH_SIZE } = {}) {
-  const followupsQueued = await queueDueScheduledFollowups()
-  const certificates = await generateDonationCertificates()
+export async function processEmailOutbox({ batchSize = DEFAULT_BATCH_SIZE, emailIds } = {}) {
+  const followupsQueued = emailIds ? 0 : await queueDueScheduledFollowups()
+  const certificates = emailIds ? { queued: 0 } : await generateDonationCertificates()
   const credentials = getMailCredentials()
   if (credentials.length === 0) {
     const error = new Error('No Gmail credentials are configured; queued emails remain pending.')
@@ -287,13 +289,15 @@ export async function processEmailOutbox({ batchSize = DEFAULT_BATCH_SIZE } = {}
     throw error
   }
 
-  const limit = Math.max(1, Math.min(MAX_BATCH_SIZE, Number(batchSize) || DEFAULT_BATCH_SIZE))
+  const limit = emailIds
+    ? emailIds.length
+    : Math.max(1, Math.min(MAX_BATCH_SIZE, Number(batchSize) || DEFAULT_BATCH_SIZE))
   await ensureCredentialRows(credentials)
 
   const result = { processed: 0, sent: 0, deferred: 0, failed: 0 }
   const startedAt = Date.now()
   while (result.processed < limit && Date.now() - startedAt < WORKER_BUDGET_MS) {
-    const email = await claimNextEmail()
+    const email = await claimNextEmail(emailIds || null)
     if (!email) break
     result.processed += 1
 
