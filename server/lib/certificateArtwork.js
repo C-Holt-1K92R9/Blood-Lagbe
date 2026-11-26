@@ -99,7 +99,11 @@ export function createCertificatePdf(svg) {
 
     try {
       doc.registerFont('Noto Sans Bengali', BENGALI_FONT_PATH)
-      SVGtoPDF(doc, svg, 0, 0, { width: doc.page.width, height: doc.page.height })
+      SVGtoPDF(doc, svg, 0, 0, {
+        width: doc.page.width,
+        height: doc.page.height,
+        preserveAspectRatio: 'xMidYMid meet',
+      })
       doc.end()
     } catch (error) {
       reject(error)

@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { inflateSync } from 'node:zlib'
 import { createCertificatePdf, createCertificateSvg, donationDateLabel } from './certificateArtwork.js'
 
 test('certificate SVG escapes donor-controlled text and includes the donation date', () => {
@@ -39,4 +40,12 @@ test('certificate PDF includes Bengali donor names and has a valid PDF signature
 
   assert.equal(pdf.subarray(0, 5).toString('ascii'), '%PDF-')
   assert.match(pdf.subarray(-20).toString('latin1'), /%%EOF/)
+  const contents = pdf.toString('latin1')
+  assert.equal((contents.match(/\/Type \/Page\b/g) || []).length, 1)
+  const pageContent = [...contents.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+    .map((match) => inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1'))
+    .find((stream) => stream.includes('0.75 0 0 0.75'))
+  assert.ok(pageContent)
+  const scales = [...pageContent.matchAll(/([\d.]+) 0 0 \1 [\d.]+ [\d.]+ cm/g)].map((match) => Number(match[1]))
+  assert.ok(scales.some((scale) => scale > 0.65 && scale < 0.75))
 })
