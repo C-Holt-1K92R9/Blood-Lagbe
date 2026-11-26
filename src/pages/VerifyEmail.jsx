@@ -16,7 +16,9 @@ export default function VerifyEmail() {
     () => routeState.needsSend ? '' : routeState.emailStatus || sessionStorage.getItem('verificationEmailStatus') || '',
   )
   const [started, setStarted] = useState(
-    () => !routeState.needsSend && (routeState.emailStatus === 'sent' || sessionStorage.getItem('verificationEmailStatus') === 'sent'),
+    () =>
+      !routeState.needsSend &&
+      ['sent', 'logged'].includes(routeState.emailStatus || sessionStorage.getItem('verificationEmailStatus')),
   )
   const [code, setCode] = useState(EMPTY_CODE)
   const [error, setError] = useState('')
@@ -32,8 +34,8 @@ export default function VerifyEmail() {
     if (routeState.needsSend) {
       sessionStorage.removeItem('verificationEmailStatus')
     } else {
-      if (routeState.emailStatus === 'sent') {
-        sessionStorage.setItem('verificationEmailStatus', 'sent')
+      if (routeState.emailStatus === 'sent' || routeState.emailStatus === 'logged') {
+        sessionStorage.setItem('verificationEmailStatus', routeState.emailStatus)
       } else {
         sessionStorage.removeItem('verificationEmailStatus')
       }
@@ -91,14 +93,15 @@ export default function VerifyEmail() {
     try {
       const result = await resendVerificationCode(email)
       setEmailStatus(result.emailStatus)
-      sessionStorage.setItem('verificationEmailStatus', result.emailStatus === 'sent' ? 'sent' : '')
+      sessionStorage.setItem(
+        'verificationEmailStatus',
+        result.emailStatus === 'sent' || result.emailStatus === 'logged' ? result.emailStatus : '',
+      )
       setCode(EMPTY_CODE)
-      setStarted(result.emailStatus === 'sent')
-      if (result.emailStatus !== 'sent') {
+      setStarted(result.emailStatus === 'sent' || result.emailStatus === 'logged')
+      if (result.emailStatus !== 'sent' && result.emailStatus !== 'logged') {
         setError(
-          result.emailStatus === 'logged'
-            ? 'Email delivery is not configured, so the code was not sent. Please try again later.'
-            : 'We could not send the code. Please try again.',
+          'We could not queue the code. Please try again.',
         )
       }
     } catch (err) {
@@ -110,7 +113,7 @@ export default function VerifyEmail() {
 
   const deliveryMessage =
     emailStatus === 'logged'
-      ? 'Email delivery is not configured, so the code was not sent. Please try again later.'
+      ? 'Your verification code is queued for delivery. Email may be delayed; check your inbox shortly.'
       : emailStatus === 'failed'
         ? 'We could not send the code. Please request a new one.'
         : ''
@@ -157,7 +160,11 @@ export default function VerifyEmail() {
           <p className="body-3 mt-3 text-mute">
             {email ? (
               <>
-                {started ? 'We sent a verification code to ' : 'Your donor account is not verified yet. Send a code to '}
+                {started
+                  ? emailStatus === 'logged'
+                    ? 'A verification code is queued for '
+                    : 'We sent a verification code to '
+                  : 'Your donor account is not verified yet. Send a code to '}
                 <span className="font-medium text-strong">{email}</span>.
               </>
             ) : (
@@ -245,7 +252,7 @@ export default function VerifyEmail() {
                     />
                   ))}
                 </div>
-                <p className="caption-5 mt-3 text-faint">The code expires 5 minutes after it is sent.</p>
+                <p className="caption-5 mt-3 text-faint">The code expires 30 minutes after it is sent.</p>
                 {verifying && <p className="caption-2 mt-4 text-mute" role="status">Checking your code…</p>}
               </form>
 

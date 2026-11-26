@@ -94,9 +94,9 @@ export function Privacy() {
         <p>
           We also use service providers for hosting, database storage, geocoding and email delivery. The current
           application uses Neon Postgres for its database, OpenStreetMap Nominatim for address geocoding, and Gmail
-          SMTP for email when configured. Email content and delivery status are recorded in the database outbox in
-          either mode. If Gmail is not configured, messages are queued in the outbox and are not automatically
-          delivered.
+          SMTP for email when configured. Email content and delivery status are recorded in the database outbox.
+          Messages are delivered by the background worker when it is triggered and valid Gmail credentials are
+          available; otherwise they remain queued for later delivery.
           The exact hosting and data regions depend on the deployment. These providers handle data under their own
           service terms and privacy notices.
         </p>

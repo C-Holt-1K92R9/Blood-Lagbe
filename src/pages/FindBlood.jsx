@@ -514,7 +514,7 @@ export default function FindBlood() {
                             ? emailsSent > 0
                               ? `We emailed ${emailsSent} ${emailsSent === 1 ? 'donor' : 'donors'} with your name, phone number, address and schedule. They will contact you directly.`
                               : emailsQueued > 0
-                                ? `${emailsQueued} donor ${emailsQueued === 1 ? 'email is' : 'emails are'} queued with your details. No mail provider is configured in this build, so delivery is recorded in the outbox.`
+                                ? `${emailsQueued} donor ${emailsQueued === 1 ? 'email is' : 'emails are'} queued for delivery. Email may be delayed while the outbox is processed.`
                                 : 'We could not deliver the donor emails. Call the donors below directly if the need is urgent.'
                             : `${result.donors.length} eligible ${result.donors.length === 1 ? 'donor is' : 'donors are'} listed below. Call the closest match directly.`}
                         </span>
@@ -526,8 +526,7 @@ export default function FindBlood() {
                       )}
                       {receiptStatus === 'logged' && (
                         <p className="caption-5 mt-1 pl-6 text-mute">
-                          A receipt for {form.requesterEmail} is in the outbox. No mail provider is configured in this
-                          build, so it was recorded instead of sent.
+                          A receipt for {form.requesterEmail} is queued for delivery and may be delayed.
                         </p>
                       )}
                       {receiptStatus === 'failed' && (
@@ -593,7 +592,7 @@ export default function FindBlood() {
                   <p className="caption-5 mt-1 text-mute">
                     {emailsSent > 0
                       ? `Delivery is recorded against request ${result.request.publicId}.`
-                      : 'No mail provider is configured in this build, so messages wait in the outbox.'}
+                      : 'Messages will be delivered by the background worker and may be delayed.'}
                   </p>
                 </div>
               )}

@@ -182,7 +182,7 @@ export default function ForgotPassword() {
                 </form>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="caption-5 text-faint">The code expires 5 minutes after it is sent.</p>
+                  <p className="caption-5 text-faint">The code expires 30 minutes after it is sent.</p>
                   <button
                     type="button"
                     onClick={() => {

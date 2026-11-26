@@ -10,7 +10,8 @@
     "start": "node server/index.js --prod",
     "lint": "oxlint",
     "db:setup": "node server/migrate.js",
-    "db:seed": "node server/seed.js"
+    "db:seed": "node server/seed.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

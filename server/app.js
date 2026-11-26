@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js'
 import searchRoutes from './routes/search.js'
 import emergencyRoutes from './routes/emergency.js'
 import contactRoutes from './routes/contact.js'
+import emailOutboxRoutes from './routes/emailOutbox.js'
 import metaRoutes from './routes/meta.js'
 
 const app = express()
@@ -23,6 +24,7 @@ app.use(attachDonor)
 app.use('/api/requests', searchRoutes)
 app.use('/api/emergency', emergencyRoutes)
 app.use('/api/contact', contactRoutes)
+app.use('/api', emailOutboxRoutes)
 app.use('/api', metaRoutes)
 app.use('/api', authRoutes)
 app.use('/api', notFound)

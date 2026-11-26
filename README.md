@@ -37,9 +37,9 @@ The project is free for seekers and designed to keep the search process simple: 
 5. Recent donors are excluded according to the donation interval:
    - blood: 90 days
    - plasma: 28 days
-6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and emailed to up to 25 matched donors in one BCC message.
+6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and up to 25 matched donors receive individual queued emails.
 
-Donor registration accepts Gmail, Yahoo, and Outlook-family addresses. New accounts remain unavailable until the 6-digit email code is verified; codes expire after 5 minutes. If registration is interrupted, sign in and choose **Verify now** to request a fresh code.
+Donor registration accepts Gmail, Yahoo, and Outlook-family addresses. New accounts remain unavailable until the 6-digit email code is verified; codes expire after 30 minutes. If registration is interrupted, sign in and choose **Verify now** to request a fresh code.
 
 Scheduled `datetime-local` values are interpreted in **Asia/Dhaka (UTC+06:00)** so stored request times do not depend on the server timezone.
 
@@ -59,7 +59,7 @@ The API generates a private close token for each post and stores it only in the 
 | Backend | Express 5 |
 | Database | Neon Postgres |
 | Geocoding | OpenStreetMap Nominatim |
-| Email | Gmail SMTP, with database-backed fallback |
+| Email | Database outbox with Gmail SMTP credential rotation |
 
 The client and API are served by the same Node.js process. PostgreSQL data and table definitions are managed through `server/schema.sql`.
 
@@ -110,7 +110,7 @@ On Windows PowerShell, create `.env` with:
 Copy-Item .env.example .env
 ```
 
-Set `DATABASE_URL` and, optionally, `DATABASE_URL_POOLED` in `.env`.
+Set `DATABASE_URL` and, optionally, `DATABASE_URL_POOLED` in `.env`. For Neon, set `DATABASE_URL_UNPOOLED` to the direct connection string for schema setup.
 
 ### Database Setup
 
@@ -119,7 +119,7 @@ npm run db:setup
 npm run db:seed
 ```
 
-`db:setup` safely re-applies `server/schema.sql`. `db:seed` is optional and only adds demo data when the donor table is empty.
+`db:setup` safely re-applies `server/schema.sql`, preferring `DATABASE_URL_UNPOOLED` for direct connections and falling back to `DATABASE_URL`. `db:seed` is optional and only adds demo data when the donor table is empty.
 
 ### Run Locally
 
@@ -142,17 +142,21 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | Neon pooled PostgreSQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string used by database helpers |
 | `DATABASE_URL_POOLED` | Optional | Pooled database connection used by database helpers |
-| `GMAIL_USER` | Required for email | Gmail account used to send application email |
-| `GMAIL_APP_PASSWORD` | Required for email | Google App Password for Gmail SMTP |
+| `DATABASE_URL_UNPOOLED` | Optional | Direct Neon connection preferred by `npm run db:setup` |
+| `GMAIL_USER` | Optional if a backup is configured | Primary Gmail account used to send application email |
+| `GMAIL_APP_PASSWORD` | Required with `GMAIL_USER` | Google App Password for Gmail SMTP |
+| `GMAIL_BACKUP_1_USER`, `GMAIL_BACKUP_1_APP_PASSWORD` | Optional | First fallback Gmail account |
+| `GMAIL_BACKUP_2_USER`, `GMAIL_BACKUP_2_APP_PASSWORD` | Optional | Second fallback Gmail account; backups 3–5 are also supported |
+| `GMAIL_DAILY_LIMIT` | Optional | Per-account rolling 24-hour limit; defaults to 450 and cannot exceed 500 |
 | `MAIL_FROM` | Optional | Sender alias configured in Gmail |
-| `CRON_SECRET` | Required on Vercel | Protects the scheduled emergency-board cleanup endpoint |
+| `CRON_SECRET` | Required for worker/cleanup | Bearer secret for the email outbox worker and scheduled emergency-board cleanup |
 | `FEEDBACK_EXPORT_SECRET` | Required for feedback exports | Bearer secret protecting the feedback CSV email endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
 
-Copy `.env.example` to `.env` and keep `.env` private. When Gmail SMTP credentials are missing or mail delivery fails, messages are recorded in the `email_outbox` table.
+Copy `.env.example` to `.env` and keep `.env` private. SMTP credentials are read from environment variables and never stored in the database. All messages are first recorded individually in `email_outbox`; retryable failures are rescheduled, quota/authentication failures cool down that account and rotate to an available backup, and permanent SMTP failures are marked failed. Verification and password-reset codes are high-priority and expire after 30 minutes.
 
 ## Demo Accounts
 
@@ -175,6 +179,7 @@ The seed also creates three public emergency board posts.
 | `npm run start` | Serves the existing production build on port 4173 |
 | `npm run db:setup` | Applies `server/schema.sql` |
 | `npm run db:seed` | Inserts optional demo data |
+| `npm test` | Runs focused Node.js tests |
 | `npm run lint` | Runs Oxlint |
 
 ## Application Routes
@@ -198,6 +203,7 @@ The seed also creates three public emergency board posts.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Database and mail status |
+| `GET` | `/api/process-email-outbox` | Process a bounded batch of queued emails; requires `CRON_SECRET` |
 | `GET` | `/api/cleanup-board` | Delete emergency board posts older than 30 days; requires `CRON_SECRET` |
 | `POST` | `/api/register` | Create a donor account and session |
 | `POST` | `/api/login` | Sign in a donor |
@@ -216,11 +222,11 @@ The seed also creates three public emergency board posts.
 | `POST` | `/api/emergency` | Create an emergency post |
 | `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
 | `POST` | `/api/contact` | Store a contact feedback submission |
-| `HEAD` or `POST` | `/api/contact/export` | Email all feedback as a CSV to the configured project owner; requires `FEEDBACK_EXPORT_SECRET` |
+| `HEAD` or `POST` | `/api/contact/export` | Queue all feedback as a CSV email to the configured project owner; requires `FEEDBACK_EXPORT_SECRET` |
 
 Donor authentication uses an httpOnly `bl_session` cookie with a 30-day lifetime and `SameSite=Lax`. Passwords are hashed with scrypt. Sessions are stored in PostgreSQL, so changing a password or signing out can revoke existing sessions.
 
-Both methods trigger a new export email on every call. `HEAD` is supported for UptimeRobot monitors; choose the monitor interval with care to avoid repeated emails.
+Both methods queue a new export email on every call. `HEAD` is supported for UptimeRobot monitors; choose the monitor interval with care to avoid repeated emails.
 
 ## Data Model
 
@@ -230,13 +236,21 @@ The main database tables are:
 - `sessions`
 - `blood_requests`
 - `request_notifications`
-- `email_outbox`
+- `email_outbox` — individual messages queued for background delivery and retry
+- `email_credential_state` — quota, cooldown, and pacing state; SMTP passwords remain environment-only
+- `request_donor_holds`
+- `donation_events`
+- `certificates`
 - `emergency_posts`
 - `contact_feedback`
 
 Expired emergency posts and scheduled blood requests are deleted before each application database query. The database schema indexes their requested times so this cleanup stays efficient.
 
 See [server/schema.sql](server/schema.sql) for constraints, indexes, and relations.
+
+The schema includes durable outbox scheduling and retry fields, donor hold/recovery fields, request action-token fields, and per-donation certificate tracking. Reapplying `npm run db:setup` is additive and idempotent; historical BCC outbox records are retained as legacy records rather than being automatically re-queued.
+
+Outgoing mail is queued by the API and delivered by `GET /api/process-email-outbox`. Configure a recurring external pinger to call this endpoint with `Authorization: Bearer <CRON_SECRET>`; the worker processes a bounded batch on each call. If no Gmail credential is configured, queued messages remain pending and the endpoint returns `503`.
 
 ## Deployment
 
@@ -251,7 +265,7 @@ Expired requests are removed before each application database query. The Vercel 
 
 ### Deploying to Vercel
 
-The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, `FEEDBACK_EXPORT_SECRET`, `GMAIL_USER`, and `GMAIL_APP_PASSWORD`; configure `MAIL_FROM` only if the address is a Gmail send-as alias. Use random secrets with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
+The Vercel deployment serves the Vite frontend and exposes the Express API through functions in `api/`. In the Vercel project settings, add `DATABASE_URL` (and optionally `DATABASE_URL_POOLED`), `CRON_SECRET`, `FEEDBACK_EXPORT_SECRET`, `GMAIL_USER`, and `GMAIL_APP_PASSWORD`; add any configured `GMAIL_BACKUP_n_*` pairs and `GMAIL_DAILY_LIMIT` as needed. Configure `MAIL_FROM` only if the address is a Gmail send-as alias. Use random secrets with at least 16 characters. Add variables to each environment you deploy to, then redeploy.
 
 Before using the app, run `npm run db:setup` once against the same database configured in Vercel. After deployment, visit `/api/health` to check the API and database connection. A `404` on an API route usually means the API function is not included in the deployment. Ensure `DATABASE_URL` is configured; a missing value prevents the API function from starting, while a `503` from `/api/health` indicates the function ran but could not connect to the database.
 
@@ -260,7 +274,7 @@ Before using the app, run `npm run db:setup` once against the same database conf
 - Public emergency posts expose phone numbers and selected location details.
 - Close tokens are browser-local secrets for managing emergency posts.
 - Donor coordinates are not publicly disclosed.
-- Password reset uses a six-digit email code that expires after five minutes and revokes existing sessions.
+- Password reset uses a six-digit email code that expires after 30 minutes and revokes existing sessions.
 - Emergency posts can be closed by the browser that created them, are deleted when their requested time passes, and are also removed after 30 days.
 
 Do not use the system to replace professional medical advice, hospital screening, blood-bank procedures, or emergency services.

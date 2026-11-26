@@ -15,12 +15,16 @@ const requireFeedbackExportSecret = (req, res, next) => {
 const feedbackExportRateLimit = rateLimit({ scope: 'feedback-export', max: 2, windowMs: 5 * 60_000 })
 const exportFeedback = asyncRoute(async (req, res) => {
   const result = await emailFeedbackCsv()
-  if (result.status !== 'sent') {
-    const status = result.status === 'logged' ? 503 : 502
-    throw new HttpError(status, 'The feedback export email could not be sent. Check the email configuration and try again.')
+  if (result.status !== 'sent' && result.status !== 'logged') {
+    throw new HttpError(502, 'The feedback export email could not be queued.')
   }
-  if (req.method === 'HEAD') return res.status(200).end()
-  res.json({ sent: true, count: result.count, recipient: result.recipient })
+  if (req.method === 'HEAD') return res.status(result.status === 'sent' ? 200 : 202).end()
+  res.status(result.status === 'sent' ? 200 : 202).json({
+    sent: result.status === 'sent',
+    queued: result.status === 'logged',
+    count: result.count,
+    recipient: result.recipient,
+  })
 })
 
 router.head('/export', requireFeedbackExportSecret, feedbackExportRateLimit, exportFeedback)

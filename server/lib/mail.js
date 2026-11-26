@@ -1,69 +1,94 @@
 import '../env.js'
-import nodemailer from 'nodemailer'
-import { query } from '../db.js'
+import { withTransaction } from '../db.js'
 
-const GMAIL_USER = process.env.GMAIL_USER || process.env.USER
-const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || process.env.PASS || '').replace(/\s/g, '')
-const FROM = process.env.GMAIL_FROM || process.env.MAIL_FROM || (GMAIL_USER ? `Donor Koi <${GMAIL_USER}>` : undefined)
+const MAX_BACKUP_CREDENTIALS = 5
 
-export function mailMode() {
-  return GMAIL_USER && GMAIL_APP_PASSWORD ? 'gmail' : 'outbox'
+function readCredential(emailName, passwordName, priority) {
+  const email = process.env[emailName]?.trim()
+  const password = (process.env[passwordName] || '').replace(/\s/g, '')
+  if (!email && !password) return null
+  if (!email || !password) {
+    throw new Error(`Both ${emailName} and ${passwordName} must be configured together.`)
+  }
+  return {
+    key: email.toLowerCase(),
+    email,
+    password,
+    priority,
+  }
 }
 
-export async function sendMail({ to, bcc, subject, text, html, attachments }) {
-  const bccRecipients = Array.isArray(bcc) ? bcc.filter(Boolean) : []
-  const outboxTo = bccRecipients.length ? bccRecipients.join(', ') : to
-  const recipientLabel = bccRecipients.length ? `${bccRecipients.length} BCC recipients` : to
-  let status = 'logged'
-  let provider = 'outbox'
-  let providerId = null
-  let error = null
+export function getMailCredentials() {
+  const credentials = []
+  const primary = readCredential('GMAIL_USER', 'GMAIL_APP_PASSWORD', 0)
+  if (primary) credentials.push(primary)
 
-  if (mailMode() === 'gmail') {
-    provider = 'gmail'
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD,
-      },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 10_000,
-    })
+  for (let index = 1; index <= MAX_BACKUP_CREDENTIALS; index += 1) {
+    const backup = readCredential(`GMAIL_BACKUP_${index}_USER`, `GMAIL_BACKUP_${index}_APP_PASSWORD`, index)
+    if (backup) credentials.push(backup)
+  }
 
-    try {
-      const info = await transporter.sendMail({
-        from: FROM,
-        to: to || (bccRecipients.length ? GMAIL_USER : undefined),
-        ...(bccRecipients.length ? { bcc: bccRecipients } : {}),
-        subject,
-        text,
-        html,
-        ...(attachments?.length ? { attachments } : {}),
-      })
-      status = 'sent'
-      providerId = info.messageId || null
-    } catch (err) {
-      status = 'failed'
-      error = err?.message || 'Gmail delivery failed'
-    } finally {
-      transporter.close()
+  const unique = new Set()
+  for (const credential of credentials) {
+    if (unique.has(credential.key)) {
+      throw new Error(`The Gmail credential ${credential.email} is configured more than once.`)
     }
+    unique.add(credential.key)
   }
 
-  await query(
-    `insert into email_outbox (to_email, subject, body, provider, provider_id, status, error)
-     values ($1, $2, $3, $4, $5, $6, $7)`,
-    [outboxTo, subject, text, provider, providerId, status, error],
-  ).catch((err) => console.error('[mail] could not record outbox row:', err.message))
+  return credentials
+}
 
-  if (status === 'logged') {
-    console.log(`[mail] (no Gmail credentials configured) queued for ${recipientLabel}: ${subject}`)
-  }
-  if (status === 'failed') {
-    console.error(`[mail] delivery failed for ${recipientLabel}: ${error}`)
-  }
+export function mailMode() {
+  const primary = process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim()
+  const backup = Array.from({ length: MAX_BACKUP_CREDENTIALS }, (_, index) => index + 1).some(
+    (index) => process.env[`GMAIL_BACKUP_${index}_USER`]?.trim() && process.env[`GMAIL_BACKUP_${index}_APP_PASSWORD`]?.trim(),
+  )
+  return primary || backup ? 'gmail' : 'outbox'
+}
 
-  return { status, provider, providerId, error }
+function serializeAttachments(attachments) {
+  if (!Array.isArray(attachments) || attachments.length === 0) return []
+
+  return attachments.map((attachment) => {
+    if (!attachment || typeof attachment.filename !== 'string' || attachment.content === undefined) {
+      throw new TypeError('Queued email attachments must include a filename and content.')
+    }
+
+    return {
+      filename: attachment.filename,
+      contentType: attachment.contentType || 'application/octet-stream',
+      contentBase64: Buffer.isBuffer(attachment.content)
+        ? attachment.content.toString('base64')
+        : Buffer.from(String(attachment.content)).toString('base64'),
+    }
+  })
+}
+
+export async function sendMail({ to, bcc, subject, text, html, attachments, priority = 0, scheduledAt }) {
+  const recipients = [...new Set([...(Array.isArray(bcc) ? bcc : []), to].filter(Boolean).map(String))]
+  if (recipients.length === 0) throw new TypeError('At least one email recipient is required.')
+
+  const queuedAttachments = serializeAttachments(attachments)
+  const scheduledFor = scheduledAt ? new Date(scheduledAt) : new Date()
+  if (Number.isNaN(scheduledFor.getTime())) throw new TypeError('The scheduled email time is invalid.')
+
+  await withTransaction(async (client) => {
+    for (const recipient of recipients) {
+      await client.query(
+        `insert into email_outbox
+           (to_email, recipient_email, subject, body, body_html, attachments_json,
+            provider, status, priority, scheduled_at)
+         values ($1, $1, $2, $3, $4, $5::jsonb, 'gmail', 'PENDING', $6, $7)`,
+        [recipient, subject, text || '', html || null, JSON.stringify(queuedAttachments), priority, scheduledFor],
+      )
+    }
+  })
+
+  return {
+    status: 'logged',
+    provider: 'outbox',
+    queued: recipients.length,
+    error: null,
+  }
 }

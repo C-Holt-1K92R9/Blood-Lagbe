@@ -50,7 +50,7 @@ function verificationMessage(code) {
     text: [
       `Your Donor Koi verification code is ${code}.`,
       '',
-      'This code expires in 5 minutes. If you did not request it, you can ignore this email.',
+      'This code expires in 30 minutes. If you did not request it, you can ignore this email.',
     ].join('\n'),
     html: `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#fafaf8;font-family:Arial,Helvetica,sans-serif;color:#141414;">
@@ -60,7 +60,7 @@ function verificationMessage(code) {
       <h1 style="margin:12px 0;font-size:22px;line-height:1.3;">Verify your email address</h1>
       <p style="font-size:15px;line-height:1.6;">Enter this code to finish creating your donor account:</p>
       <p style="margin:20px 0;padding:16px;border-radius:12px;background:#fafaf8;text-align:center;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;">${code}</p>
-      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 5 minutes. If you did not request it, you can ignore this email.</p>
+      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 30 minutes. If you did not request it, you can ignore this email.</p>
     </td></tr>
   </table>
 </body></html>`,
@@ -71,14 +71,14 @@ async function sendVerificationCode(email) {
   const code = randomInt(0, 1_000_000)
   const { rows } = await query(
     `update donors
-        set OTP = $2, otp_expires_at = now() + interval '5 minutes', updated_at = now()
+        set OTP = $2, otp_expires_at = now() + interval '30 minutes', updated_at = now()
       where lower(email) = $1 and varified = false
       returning otp_expires_at`,
     [email, code],
   )
   if (!rows[0]) throw new HttpError(404, 'No unverified donor account was found for this email.')
 
-  const result = await sendMail({ to: email, ...verificationMessage(String(code).padStart(6, '0')) })
+  const result = await sendMail({ to: email, priority: 100, ...verificationMessage(String(code).padStart(6, '0')) })
   return { emailStatus: result.status, expiresAt: rows[0].otp_expires_at }
 }
 
@@ -88,7 +88,7 @@ function passwordResetMessage(code) {
     text: [
       `Your Donor Koi password reset code is ${code}.`,
       '',
-      'This code expires in 5 minutes. If you did not request a password reset, you can ignore this email.',
+      'This code expires in 30 minutes. If you did not request a password reset, you can ignore this email.',
     ].join('\n'),
     html: `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#fafaf8;font-family:Arial,Helvetica,sans-serif;color:#141414;">
@@ -98,7 +98,7 @@ function passwordResetMessage(code) {
       <h1 style="margin:12px 0;font-size:22px;line-height:1.3;">Reset your password</h1>
       <p style="font-size:15px;line-height:1.6;">Enter this code to choose a new password:</p>
       <p style="margin:20px 0;padding:16px;border-radius:12px;background:#fafaf8;text-align:center;font-family:monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;">${code}</p>
-      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 5 minutes. If you did not request a password reset, you can ignore this email.</p>
+      <p style="font-size:13px;line-height:1.6;color:#6e6a61;">This code expires in 30 minutes. If you did not request a password reset, you can ignore this email.</p>
     </td></tr>
   </table>
 </body></html>`,
@@ -139,7 +139,7 @@ router.post(
         `insert into donors
            (name, email, phone, password_hash, blood_group, donation_type, last_donated,
             division, city, address_text, lat, lng, location_source, available, varified, otp, otp_expires_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,$15,now() + interval '5 minutes')
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,$15,now() + interval '30 minutes')
          returning *`,
         [
           name,
@@ -171,6 +171,7 @@ router.post(
 
     const delivery = await sendMail({
       to: email,
+      priority: 100,
       ...verificationMessage(String(otp).padStart(6, '0')),
     })
     res.status(201).json({
@@ -190,14 +191,14 @@ router.post(
     const code = randomInt(0, 1_000_000)
     const { rows } = await query(
       `update donors
-          set otp = $2, otp_expires_at = now() + interval '5 minutes', updated_at = now()
+          set otp = $2, otp_expires_at = now() + interval '30 minutes', updated_at = now()
         where lower(email) = $1 and varified = true
         returning email`,
       [email, code],
     )
 
     if (rows[0]) {
-      await sendMail({ to: rows[0].email, ...passwordResetMessage(String(code).padStart(6, '0')) })
+      await sendMail({ to: rows[0].email, priority: 100, ...passwordResetMessage(String(code).padStart(6, '0')) })
     }
 
     res.json({ message: 'If a verified account exists for that email, a password reset code has been sent.' })
