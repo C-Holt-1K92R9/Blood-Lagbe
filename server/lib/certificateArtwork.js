@@ -1,3 +1,7 @@
+import { createRequire } from 'node:module'
+import PDFDocument from 'pdfkit'
+import SVGtoPDF from 'svg-to-pdfkit'
+
 const XML_ESCAPES = {
   '&': '&amp;',
   '<': '&lt;',
@@ -5,6 +9,11 @@ const XML_ESCAPES = {
   '"': '&quot;',
   "'": '&apos;',
 }
+
+const require = createRequire(import.meta.url)
+const BENGALI_FONT_PATH = require.resolve(
+  '@fontsource/noto-sans-bengali/files/noto-sans-bengali-bengali-400-normal.woff',
+)
 
 function escapeXml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => XML_ESCAPES[char])
@@ -28,6 +37,11 @@ export function createCertificateSvg({ donorName, donatedAt, certificateNumber }
 
   const dateLabel = donationDateLabel(donatedAt)
   const nameFontSize = Math.max(16, Math.min(58, Math.floor(1300 / name.length)))
+  const nameMarkup = name.split(/(\p{Script=Bengali}+)/gu).filter(Boolean).map((part) =>
+    /^\p{Script=Bengali}/u.test(part)
+      ? `<tspan font-family="Noto Sans Bengali">${escapeXml(part)}</tspan>`
+      : escapeXml(part),
+  ).join('')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" role="img" aria-labelledby="title description">
   <title id="title">Donor Koi honorary donor certificate</title>
@@ -56,7 +70,7 @@ export function createCertificateSvg({ donorName, donatedAt, certificateNumber }
   <text x="800" y="462" text-anchor="middle" fill="#766b55" font-family="Arial, Helvetica, sans-serif" font-size="27" letter-spacing="3">CERTIFICATE OF APPRECIATION</text>
   <path d="M510 500h580" stroke="url(#gold)" stroke-width="3"/>
   <text x="800" y="574" text-anchor="middle" fill="#4a4b43" font-family="Arial, Helvetica, sans-serif" font-size="28">Presented with gratitude to</text>
-  <text x="800" y="680" text-anchor="middle" fill="#a12c27" font-family="Georgia, 'Times New Roman', serif" font-size="${nameFontSize}" font-weight="700">${escapeXml(name)}</text>
+  <text x="800" y="680" text-anchor="middle" fill="#a12c27" font-family="Georgia, 'Times New Roman', serif" font-size="${nameFontSize}" font-weight="700">${nameMarkup}</text>
   <text x="800" y="756" text-anchor="middle" fill="#4a4b43" font-family="Arial, Helvetica, sans-serif" font-size="27">In recognition of a voluntary donation on</text>
   <text x="800" y="808" text-anchor="middle" fill="#173b39" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700">${escapeXml(dateLabel)} · Bangladesh</text>
   <g transform="translate(800 916)">
@@ -65,4 +79,31 @@ export function createCertificateSvg({ donorName, donatedAt, certificateNumber }
   <text x="800" y="994" text-anchor="middle" fill="#766b55" font-family="Arial, Helvetica, sans-serif" font-size="17" letter-spacing="2">CERTIFICATE ${escapeXml(number)}</text>
   <text x="800" y="1024" text-anchor="middle" fill="#766b55" font-family="Arial, Helvetica, sans-serif" font-size="15">A community recognition from Donor Koi. Medical eligibility is determined by licensed professionals.</text>
 </svg>`
+}
+
+export function createCertificatePdf(svg) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      layout: 'landscape',
+      margin: 0,
+      info: {
+        Title: 'Donor Koi honorary donor certificate',
+        Author: 'Donor Koi',
+      },
+    })
+    const chunks = []
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.once('error', reject)
+    doc.once('end', () => resolve(Buffer.concat(chunks)))
+
+    try {
+      doc.registerFont('Noto Sans Bengali', BENGALI_FONT_PATH)
+      SVGtoPDF(doc, svg, 0, 0, { width: doc.page.width, height: doc.page.height })
+      doc.end()
+    } catch (error) {
+      reject(error)
+      doc.destroy()
+    }
+  })
 }

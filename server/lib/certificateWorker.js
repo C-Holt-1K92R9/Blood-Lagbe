@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { withTransaction } from '../db.js'
 import { enqueueMail } from './mail.js'
-import { createCertificateSvg, donationDateLabel } from './certificateArtwork.js'
+import { createCertificatePdf, createCertificateSvg, donationDateLabel } from './certificateArtwork.js'
 
 const DEFAULT_BATCH_SIZE = 25
 const MAX_BATCH_SIZE = 100
@@ -40,20 +40,18 @@ export async function generateDonationCertificates({ batchSize = DEFAULT_BATCH_S
     let queued = 0
     for (const event of events) {
       const number = certificateNumber(new Date(event.donated_at))
-      const fileName = `Donor-Koi-${number}.svg`
-      const artwork = Buffer.from(
-        createCertificateSvg({
-          donorName: event.name,
-          donatedAt: event.donated_at,
-          certificateNumber: number,
-        }),
-        'utf8',
-      )
+      const fileName = `Donor-Koi-${number}.pdf`
+      const certificateSvg = createCertificateSvg({
+        donorName: event.name,
+        donatedAt: event.donated_at,
+        certificateNumber: number,
+      })
+      const artwork = await createCertificatePdf(certificateSvg)
       const { rows: certificates } = await client.query(
         `insert into certificates
            (donation_event_id, donor_id, certificate_number, status, content_type,
             file_name, artifact_data, issued_at)
-         values ($1, $2, $3, 'ready', 'image/svg+xml', $4, $5, now())
+         values ($1, $2, $3, 'ready', 'application/pdf', $4, $5, now())
          on conflict (donation_event_id) do nothing
          returning id`,
         [event.event_id, event.donor_id, number, fileName, artwork],
@@ -74,7 +72,7 @@ export async function generateDonationCertificates({ batchSize = DEFAULT_BATCH_S
           'Donor Koi',
         ].join('\n'),
         html: `<p>Hello ${escapeHtml(event.name)},</p><p>Thank you for your voluntary donation on ${escapeHtml(dateLabel)}. Your honorary donor certificate is attached.</p><p>Certificate number: <strong>${escapeHtml(number)}</strong></p><p>Only licensed medical professionals can determine donation eligibility.</p><p>Donor Koi</p>`,
-        attachments: [{ filename: fileName, contentType: 'image/svg+xml', content: artwork }],
+        attachments: [{ filename: fileName, contentType: 'application/pdf', content: artwork }],
         priority: 10,
       })
       queued += 1

@@ -3,6 +3,7 @@ import { query } from '../db.js'
 import { asyncRoute, HttpError } from '../lib/http.js'
 import { requireDonor } from '../lib/session.js'
 import { rateLimit } from '../lib/ratelimit.js'
+import { createCertificatePdf } from '../lib/certificateArtwork.js'
 
 const router = Router()
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -80,13 +81,22 @@ router.get(
     )
     if (!rows[0] || !rows[0].artifact_data) throw new HttpError(404, 'Certificate not found.')
 
-    const fileName = String(rows[0].file_name || 'donor-koi-certificate.svg').replace(/[^A-Za-z0-9_.-]/g, '-')
+    let fileName = String(rows[0].file_name || 'donor-koi-certificate.pdf').replace(/[^A-Za-z0-9_.-]/g, '-')
+    let contentType = rows[0].content_type || 'application/pdf'
+    let artifact = rows[0].artifact_data
+    const isSvg = contentType === 'image/svg+xml' || fileName.toLowerCase().endsWith('.svg')
+    if (isSvg) {
+      const svg = Buffer.isBuffer(artifact) ? artifact.toString('utf8') : String(artifact)
+      artifact = await createCertificatePdf(svg)
+      fileName = `${fileName.replace(/\.[^.]+$/, '')}.pdf`
+      contentType = 'application/pdf'
+    }
     res
-      .setHeader('Content-Type', rows[0].content_type || 'image/svg+xml')
+      .setHeader('Content-Type', contentType)
       .setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
       .setHeader('Cache-Control', 'private, no-store')
       .setHeader('X-Content-Type-Options', 'nosniff')
-      .send(rows[0].artifact_data)
+      .send(artifact)
   }),
 )
 

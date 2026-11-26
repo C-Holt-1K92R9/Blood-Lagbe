@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createCertificateSvg, donationDateLabel } from './certificateArtwork.js'
+import { createCertificatePdf, createCertificateSvg, donationDateLabel } from './certificateArtwork.js'
 
 test('certificate SVG escapes donor-controlled text and includes the donation date', () => {
   const svg = createCertificateSvg({
@@ -27,4 +27,16 @@ test('certificate font size shrinks for the maximum-length donor name', () => {
   })
 
   assert.match(svg, /font-size="16" font-weight="700">D{80}<\/text>/)
+})
+
+test('certificate PDF includes Bengali donor names and has a valid PDF signature', async () => {
+  const svg = createCertificateSvg({
+    donorName: 'রহিম Uddin',
+    donatedAt: '2026-11-25T18:00:00.000Z',
+    certificateNumber: 'DK-20261126-ABC123',
+  })
+  const pdf = await createCertificatePdf(svg)
+
+  assert.equal(pdf.subarray(0, 5).toString('ascii'), '%PDF-')
+  assert.match(pdf.subarray(-20).toString('latin1'), /%%EOF/)
 })

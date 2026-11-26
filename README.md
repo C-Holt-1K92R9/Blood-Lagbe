@@ -43,7 +43,7 @@ The project is free for seekers and designed to keep the search process simple: 
    - plasma: 28 days
 6. Immediate requests expose matching phone numbers and let the seeker hold a primary and backup donor for two hours; they use direct calls rather than email. After a donation actually happens, the seeker opens the private request-management page and confirms which held donor donated. Scheduled requests are saved and up to 10 eligible donors within 10 km receive individual queued emails with private accept/decline links.
 7. Donation confirmation starts the donor's 90-day blood or 28-day plasma recovery period; availability is restored only if it was enabled before the donation.
-8. A background job generates a downloadable SVG certificate for each confirmed donation and queues it by email. Donors can view their private achievement history and choose whether to appear by name and donation count on the public wall.
+8. A background job generates a downloadable PDF certificate for each confirmed donation and queues it by email. Donors can view their private achievement history and choose whether to appear by name and donation count on the public wall.
 
 Donor registration accepts Gmail, Yahoo, and Outlook-family addresses. New accounts remain unavailable until the 6-digit email code is verified; codes expire after 30 minutes. If registration is interrupted, sign in and choose **Verify now** to request a fresh code.
 
