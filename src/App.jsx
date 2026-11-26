@@ -5,6 +5,10 @@ import Nav from './components/Nav.jsx'
 import Footer from './components/Footer.jsx'
 import Landing from './pages/Landing.jsx'
 import FindBlood from './pages/FindBlood.jsx'
+import BetaDisclaimer from './pages/BetaDisclaimer.jsx'
+import HonoraryDonors from './pages/HonoraryDonors.jsx'
+import RequestManagement from './pages/RequestManagement.jsx'
+import RequestResponse from './pages/RequestResponse.jsx'
 import RegisterDonor from './pages/RegisterDonor.jsx'
 import Login from './pages/Login.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
@@ -18,6 +22,9 @@ import NotFound from './pages/NotFound.jsx'
 const TITLES = {
   '/': 'Donor Koi | Find blood donors near you in minutes',
   '/find': 'Find a blood donor | Donor Koi',
+  '/honorary-donors': 'Honorary Donors | Donor Koi',
+  '/beta-disclaimer': 'Beta disclaimer | Donor Koi',
+  '/request-response': 'Donor response | Donor Koi',
   '/register': 'Become a blood or plasma donor | Donor Koi',
   '/login': 'Donor sign in | Donor Koi',
   '/verify-email': 'Verify your email | Donor Koi',
@@ -38,7 +45,13 @@ function ScrollToTop() {
   }, [pathname])
 
   useEffect(() => {
-    document.title = TITLES[pathname] || 'Page not found | Donor Koi'
+    document.title =
+      TITLES[pathname] ||
+      (pathname.startsWith('/request-response/')
+        ? TITLES['/request-response']
+        : pathname.startsWith('/request/')
+          ? 'Manage blood request | Donor Koi'
+          : 'Page not found | Donor Koi')
   }, [pathname])
 
   return null
@@ -57,6 +70,10 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/find" element={<FindBlood />} />
+            <Route path="/honorary-donors" element={<HonoraryDonors />} />
+            <Route path="/beta-disclaimer" element={<BetaDisclaimer />} />
+            <Route path="/request/:publicId" element={<RequestManagement />} />
+            <Route path="/request-response/:token" element={<RequestResponse />} />
             <Route path="/register" element={<RegisterDonor />} />
             <Route path="/login" element={<Login />} />
             <Route path="/verify-email" element={<VerifyEmail />} />

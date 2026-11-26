@@ -6,6 +6,7 @@ import {
   Crosshair,
   Drop,
   House,
+  Medal,
   MapPin,
   SignOut,
   Trash,
@@ -47,7 +48,13 @@ export default function DonorDashboard() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
 
-  const [profile, setProfile] = useState({ name: '', phone: '', bloodGroup: '', donationType: 'blood' })
+  const [profile, setProfile] = useState({
+    name: '',
+    phone: '',
+    bloodGroup: '',
+    donationType: 'blood',
+    showOnHonorWall: false,
+  })
   const [address, setAddress] = useState({ division: '', city: '', addressText: '' })
   const [lastDonated, setLastDonated] = useState('')
   const [errors, setErrors] = useState({})
@@ -56,6 +63,10 @@ export default function DonorDashboard() {
   const [busy, setBusy] = useState('')
   const [requests, setRequests] = useState([])
   const [requestsLoading, setRequestsLoading] = useState(true)
+  const [achievements, setAchievements] = useState(null)
+  const [achievementsLoading, setAchievementsLoading] = useState(true)
+  const [achievementsError, setAchievementsError] = useState('')
+  const [achievementsBusy, setAchievementsBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [password, setPassword] = useState({ current: '', next: '', confirm: '' })
   const [passwordErrors, setPasswordErrors] = useState({})
@@ -67,9 +78,28 @@ export default function DonorDashboard() {
       phone: donor.phone,
       bloodGroup: donor.bloodGroup,
       donationType: donor.donationType,
+      showOnHonorWall: donor.showOnHonorWall,
     })
     setAddress({ division: donor.division, city: donor.city, addressText: donor.addressText })
     setLastDonated(donor.lastDonated || '')
+  }, [donor])
+
+  useEffect(() => {
+    if (!donor) return
+    let alive = true
+    api('/me/achievements')
+      .then((data) => {
+        if (alive) setAchievements(data)
+      })
+      .catch((err) => {
+        if (alive) setAchievementsError(err.message)
+      })
+      .finally(() => {
+        if (alive) setAchievementsLoading(false)
+      })
+    return () => {
+      alive = false
+    }
   }, [donor])
 
   useEffect(() => {
@@ -145,6 +175,18 @@ export default function DonorDashboard() {
     run('address', () => update(address), 'Address saved. We recalculated your map pin.')
   }
 
+  const refreshAchievements = async () => {
+    setAchievementsBusy(true)
+    setAchievementsError('')
+    try {
+      setAchievements(await api('/me/achievements'))
+    } catch (err) {
+      setAchievementsError(err.message)
+    } finally {
+      setAchievementsBusy(false)
+    }
+  }
+
   const useCurrentLocation = () =>
     run(
       'location',
@@ -208,7 +250,12 @@ export default function DonorDashboard() {
     ? 'Visible to seekers'
     : eligibility.reason === 'unavailable'
       ? 'Hidden from search'
-      : 'Waiting period'
+      : eligibility.reason === 'recovery'
+        ? 'Recovery period'
+        : eligibility.reason === 'held'
+          ? 'On hold'
+          : 'Waiting period'
+  const cannotEnableAvailability = eligibility.reason === 'recovery' || eligibility.reason === 'held'
 
   return (
     <div className="min-h-screen bg-canvas pt-24 sm:pt-28">
@@ -274,9 +321,11 @@ export default function DonorDashboard() {
                 <div>
                   <h2 className="title-2">Availability</h2>
                   <p className="caption-2 mt-1 text-mute">
-                    {donor.available
-                      ? 'You are marked available. Search only shows you if your waiting period is over.'
-                      : 'You are switched off. Nobody can find you in search.'}
+                    {eligibility.reason === 'recovery'
+                      ? `You are in recovery until ${timeLabel(donor.recoveryUntil)}. Search will not show you during this period.`
+                      : donor.available
+                        ? 'You are marked available. Search only shows you if your waiting period is over.'
+                        : 'You are switched off. Nobody can find you in search.'}
                   </p>
                 </div>
                 <button
@@ -284,7 +333,7 @@ export default function DonorDashboard() {
                   role="switch"
                   aria-checked={donor.available}
                   aria-label="Available to donate right now"
-                  disabled={busy === 'availability'}
+                  disabled={busy === 'availability' || (!donor.available && cannotEnableAvailability)}
                   onClick={toggleAvailable}
                   className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-300 ease-out disabled:opacity-60 ${
                     donor.available ? 'bg-good' : 'bg-raised-2'
@@ -307,12 +356,20 @@ export default function DonorDashboard() {
                   <p className="title-4 mt-1.5">
                     {eligibility.eligible
                       ? 'You can donate now'
+                      : eligibility.reason === 'recovery'
+                        ? `Recovery until ${timeLabel(donor.recoveryUntil)}`
+                        : eligibility.reason === 'held'
+                          ? `On hold until ${timeLabel(donor.lockedUntil)}`
                       : eligibility.reason === 'unavailable'
                         ? 'Availability is switched off'
                         : `Next eligible ${dateLabel(eligibility.nextEligibleAt)}`}
                   </p>
                   <p className="caption-5 mt-1 text-faint">
-                    {eligibility.reason === 'unavailable'
+                    {eligibility.reason === 'recovery'
+                      ? 'Availability will be restored automatically when this recovery period ends.'
+                      : eligibility.reason === 'held'
+                        ? 'Your temporary hold prevents other requests from reserving you.'
+                        : eligibility.reason === 'unavailable'
                       ? 'Turn availability back on when you are ready to donate again.'
                       : eligibility.reason === 'cooldown'
                         ? `${eligibility.daysUntilEligible} ${eligibility.daysUntilEligible === 1 ? 'day' : 'days'} left in the ${eligibility.intervalDays}-day waiting period after a ${donor.donationType} donation.`
@@ -437,6 +494,70 @@ export default function DonorDashboard() {
                 </ul>
               )}
             </section>
+
+            <section className="rounded-2xl border border-line bg-raised shadow-[var(--shadow-card)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+                <div>
+                  <h2 className="title-2 flex items-center gap-2">
+                    <Medal size={19} className="text-good" aria-hidden="true" />
+                    Achievements
+                  </h2>
+                  <p className="caption-5 mt-1 text-mute">
+                    {achievementsLoading ? 'Loading donation record…' : `${achievements?.confirmedDonations || 0} confirmed donations`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={refreshAchievements}
+                  disabled={achievementsBusy}
+                  className="button-sm rounded-lg border border-line px-3 py-2 caption-5 text-mute hover:text-strong disabled:opacity-60"
+                >
+                  {achievementsBusy ? 'Refreshing…' : 'Refresh'}
+                </button>
+              </div>
+              {achievementsError && (
+                <p className="m-4 rounded-lg border border-brand/20 bg-brand-soft p-3 caption-5 text-brand" role="alert">
+                  Could not load achievements: {achievementsError}
+                </p>
+              )}
+              {achievementsLoading ? (
+                <div className="space-y-3 p-5" aria-busy="true">
+                  {[0, 1].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-lifted" />)}
+                </div>
+              ) : achievements?.certificates?.length ? (
+                <ul className="divide-y divide-line">
+                  {achievements.certificates.map((certificate, index) => (
+                    <li key={certificate.certificateNumber || `${certificate.donatedAt}-${index}`} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                      <div>
+                        <p className="title-4">{certificate.certificateNumber || 'Donation recognition'}</p>
+                        <p className="caption-5 mt-1 text-mute">Donation confirmed {timeLabel(certificate.donatedAt)}</p>
+                        {certificate.status !== 'ready' && (
+                          <p className="caption-5 mt-1 text-faint">Certificate will appear after the background job runs.</p>
+                        )}
+                      </div>
+                      {certificate.downloadUrl && (
+                        <a
+                          href={certificate.downloadUrl}
+                          className="button-sm rounded-lg bg-good-soft px-3 py-2 caption-5 text-good hover:bg-good-soft/70"
+                        >
+                          Download certificate
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-5 py-8 caption-2 text-mute">
+                  No confirmed donations are recorded yet. Once a donation is confirmed, its certificate and total will
+                  appear here.
+                </p>
+              )}
+              <div className="border-t border-line px-5 py-3">
+                <Link to="/honorary-donors" className="caption-5 text-mute underline underline-offset-4 hover:text-strong">
+                  View the public Honorary Donors wall
+                </Link>
+              </div>
+            </section>
           </div>
 
           <div className="space-y-6">
@@ -498,6 +619,23 @@ export default function DonorDashboard() {
                     })}
                   </div>
                 </fieldset>
+
+                <label htmlFor="showOnHonorWall" className="flex items-start gap-3 rounded-xl border border-line bg-surface p-3">
+                  <input
+                    id="showOnHonorWall"
+                    type="checkbox"
+                    checked={Boolean(profile.showOnHonorWall)}
+                    onChange={(e) => setProfile((p) => ({ ...p, showOnHonorWall: e.target.checked }))}
+                    className="mt-1 h-4 w-4 accent-brand-solid"
+                  />
+                  <span>
+                    <span className="title-4 block">Show my name on the Honorary Donors wall</span>
+                    <span className="caption-5 mt-1 block text-mute">
+                      This is optional. Only your name and confirmed donation count are public; contact details and
+                      location are never shown there.
+                    </span>
+                  </span>
+                </label>
 
                 <button
                   type="submit"

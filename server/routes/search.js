@@ -1,16 +1,28 @@
 import { Router } from 'express'
-import { query } from '../db.js'
+import { query, withTransaction } from '../db.js'
 import { asyncRoute, HttpError } from '../lib/http.js'
 import { resolveCoordinates } from '../lib/geo.js'
 import { publicId } from '../lib/ids.js'
-import { sendMail } from '../lib/mail.js'
+import { hashToken, newSessionToken } from '../lib/auth.js'
+import { enqueueMail, sendMail } from '../lib/mail.js'
+import {
+  confirmManagedDonation,
+  getManagedRequest,
+  holdImmediateDonor,
+  releaseImmediateHold,
+  requestResponseUrl,
+  respondToScheduledRequest,
+} from '../lib/requestWorkflow.js'
 import { rateLimit } from '../lib/ratelimit.js'
 import * as v from '../lib/validate.js'
 
 const router = Router()
 
 const RADIUS_KM = 10
-const MAX_EMAILS = 25
+const MAX_EMAILS = 10
+const REQUEST_MANAGEMENT_DAYS = 7
+const SCHEDULED_HOLD_MS = 4 * 60 * 60 * 1000
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const dhakaDate = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Asia/Dhaka',
@@ -29,7 +41,7 @@ function formatNeededAt(value) {
   return `${dhakaDate.format(new Date(value))} (Bangladesh time)`
 }
 
-function emailBody({ request }) {
+function emailBody({ request, responseUrl }) {
   const when = request.situation === 'later' ? formatNeededAt(request.needed_at) : 'Immediately, today'
   return {
     subject: `${request.blood_group} ${request.need_type} needed in ${request.city} (${request.public_id})`,
@@ -47,7 +59,9 @@ function emailBody({ request }) {
       `Phone: ${request.requester_phone}`,
       request.requester_email ? `Email: ${request.requester_email}` : null,
       '',
-      'If you are able to help, call the requester directly. Never accept money or gifts for a donation.',
+      ...(responseUrl
+        ? ['If you can help, open the private response link to accept or decline this request:', responseUrl]
+        : ['If you are able to help, call the requester directly. Never accept money or gifts for a donation.']),
       '',
       `Reference: ${request.public_id}`,
       '',
@@ -58,7 +72,7 @@ function emailBody({ request }) {
   }
 }
 
-function emailHtml({ request }) {
+function emailHtml({ request, responseUrl }) {
   const when = request.situation === 'later' ? formatNeededAt(request.needed_at) : 'Immediately, today'
   const phoneHref = request.requester_phone.replace(/[^\d+]/g, '')
   return `<!doctype html>
@@ -67,7 +81,7 @@ function emailHtml({ request }) {
     <tr><td style="padding:28px;">
       <p style="margin:0;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#d92d20;font-weight:700;">Donor Koi request</p>
       <h1 style="margin:10px 0 0;font-size:22px;line-height:1.3;">${esc(request.blood_group)} ${esc(request.need_type)} needed in ${esc(request.city)}</h1>
-      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;">Hello, a patient near you needs ${esc(request.need_type)}. If you can help, call the requester directly.</p>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;">Hello, a patient near you needs ${esc(request.need_type)}. ${responseUrl ? 'Open the private response link to accept or decline this request.' : 'If you can help, call the requester directly.'}</p>
       <table role="presentation" style="margin:20px 0 0;width:100%;font-size:14px;line-height:1.6;">
         <tr><td style="padding:4px 0;color:#57534e;width:110px;">Needed</td><td style="padding:4px 0;font-weight:600;">${esc(when)}</td></tr>
         <tr><td style="padding:4px 0;color:#57534e;">Location</td><td style="padding:4px 0;font-weight:600;">${esc(request.address_text)}, ${esc(request.city)}, ${esc(request.division)}</td></tr>
@@ -76,7 +90,11 @@ function emailHtml({ request }) {
         <tr><td style="padding:4px 0;color:#57534e;">Reference</td><td style="padding:4px 0;font-family:monospace;">${esc(request.public_id)}</td></tr>
       </table>
       <p style="margin:22px 0 0;">
-        <a href="tel:${esc(phoneHref)}" style="display:inline-block;background:#d92d20;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;">Call ${esc(request.requester_name)}</a>
+        ${
+          responseUrl
+            ? `<a href="${esc(responseUrl)}" style="display:inline-block;background:#d92d20;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;">Respond to this request</a>`
+            : `<a href="tel:${esc(phoneHref)}" style="display:inline-block;background:#d92d20;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;">Call ${esc(request.requester_name)}</a>`
+        }
       </p>
       <p style="margin:22px 0 0;font-size:12px;line-height:1.6;color:#6e6a61;">Donation is voluntary and unpaid. Never accept money or gifts for a donation. If this request looks suspicious, write to trust@donorkoi.2bd.net.</p>
     </td></tr>
@@ -102,7 +120,9 @@ function receiptMessage({ request, matchedCount, emailedCount }) {
     request.situation === 'immediate'
       ? 'The donor list with call buttons is on the search page. Call the closest donor directly. If nobody answers, post the request on the emergency board.'
       : matchedCount > 0
-        ? `We emailed ${emailedCount} ${emailedCount === 1 ? 'donor' : 'donors'} your name, phone number, hospital address and schedule. They will contact you directly.`
+        ? emailedCount > 0
+          ? `We queued individual request emails for ${emailedCount} ${emailedCount === 1 ? 'donor' : 'donors'} within 10 km. They can accept or decline using a private link.`
+          : 'No eligible donor with an email address was found within 10 km. Call the listed donors directly if the need is urgent.'
         : 'No eligible donor is in the network for this request right now. Post it on the emergency board so the wider community can respond.',
     '',
     'Keep this reference for follow-up. In a life-threatening emergency, call 999 first.',
@@ -127,7 +147,9 @@ function receiptMessage({ request, matchedCount, emailedCount }) {
         request.situation === 'immediate'
           ? 'The donor list with call buttons is on the search page. Call the closest donor directly. If nobody answers, post the request on the emergency board.'
           : matchedCount > 0
-            ? `We emailed ${emailedCount} ${emailedCount === 1 ? 'donor' : 'donors'} your name, phone number, hospital address and schedule. They will contact you directly.`
+            ? emailedCount > 0
+              ? `We queued individual request emails for ${emailedCount} ${emailedCount === 1 ? 'donor' : 'donors'} within 10 km. They can accept or decline using a private link.`
+              : 'No eligible donor with an email address was found within 10 km. Call the listed donors directly if the need is urgent.'
             : 'No eligible donor is in the network for this request right now. Post it on the emergency board so the wider community can respond.'
       }</p>
       <p style="margin:22px 0 0;font-size:12px;line-height:1.6;color:#6e6a61;">Keep this reference for follow-up. In a life-threatening emergency, call 999 first. Never pay for blood.</p>
@@ -180,115 +202,124 @@ router.post(
     }
 
     const id = publicId('REQ')
-    const { rows: requestRows } = await query(
-      `insert into blood_requests
-         (public_id, requester_name, requester_phone, requester_email, address_text, division, city,
-          lat, lng, blood_group, need_type, situation, needed_at, status)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'searched')
-       returning *`,
-      [
-        id,
-        requesterName,
-        requesterPhone,
-        requesterEmail || null,
-        addressText,
-        division,
-        city,
-        origin.lat,
-        origin.lng,
-        bloodGroup,
-        needType,
-        situation,
-        neededAt,
-      ],
+    const manageToken = newSessionToken()
+    const manageExpiryAt = new Date(
+      Math.max(Date.now() + REQUEST_MANAGEMENT_DAYS * 24 * 60 * 60 * 1000, (neededAt ? Date.parse(neededAt) : Date.now()) + REQUEST_MANAGEMENT_DAYS * 24 * 60 * 60 * 1000),
     )
-    const request = requestRows[0]
+    const workflow = await withTransaction(async (client) => {
+      const { rows: requestRows } = await client.query(
+        `insert into blood_requests
+           (public_id, requester_name, requester_phone, requester_email, address_text, division, city,
+            lat, lng, blood_group, need_type, situation, needed_at, status,
+            manage_token_hash, manage_token_expires_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'searched',$14,$15)
+         returning *`,
+        [
+          id,
+          requesterName,
+          requesterPhone,
+          requesterEmail || null,
+          addressText,
+          division,
+          city,
+          origin.lat,
+          origin.lng,
+          bloodGroup,
+          needType,
+          situation,
+          neededAt,
+          hashToken(manageToken),
+          manageExpiryAt,
+        ],
+      )
+      const request = requestRows[0]
+      const { rows } = await client.query(
+        `with candidates as (
+           select d.id, d.name, d.email, d.phone, d.blood_group, d.donation_type, d.last_donated,
+                  d.city, d.division, d.available, d.location_source,
+                  6371 * 2 * asin(least(1, sqrt(
+                    power(sin(radians(d.lat - $1) / 2), 2) +
+                    cos(radians($1)) * cos(radians(d.lat)) * power(sin(radians(d.lng - $2) / 2), 2)
+                  ))) as distance_km
+             from donors d
+            where d.blood_group = $3
+              and d.donation_type = $4
+              and d.lat is not null
+              and d.lng is not null
+              and d.available = true
+              and d.varified = true
+              and (d.locked_until is null or d.locked_until <= now())
+              and (d.recovery_until is null or d.recovery_until <= now())
+              and (
+                d.last_donated is null
+                or d.last_donated <= (now() at time zone 'Asia/Dhaka')::date - case when d.donation_type = 'plasma'
+                                                                                   then interval '28 days'
+                                                                                   else interval '90 days' end
+              )
+         )
+         select * from candidates
+          where distance_km <= $5 or city = $6
+          order by (distance_km <= $5) desc, distance_km asc
+          limit 60`,
+        [origin.lat, origin.lng, bloodGroup, needType, RADIUS_KM, city],
+      )
+      const donors = rows.map((donor) => ({
+        id: donor.id,
+        name: donor.name,
+        email: donor.email,
+        bloodGroup: donor.blood_group,
+        donationType: donor.donation_type,
+        city: donor.city,
+        distanceKm: Math.round(Number(donor.distance_km) * 10) / 10,
+        withinRadius: Number(donor.distance_km) <= RADIUS_KM,
+        lastDonated: donor.last_donated || null,
+        phone: situation === 'immediate' ? donor.phone : null,
+        notifyStatus: null,
+      }))
 
-    const { rows } = await query(
-      `with candidates as (
-         select d.id, d.name, d.email, d.phone, d.blood_group, d.donation_type, d.last_donated,
-                d.city, d.division, d.available, d.location_source,
-                6371 * 2 * asin(least(1, sqrt(
-                  power(sin(radians(d.lat - $1) / 2), 2) +
-                  cos(radians($1)) * cos(radians(d.lat)) * power(sin(radians(d.lng - $2) / 2), 2)
-                ))) as distance_km
-           from donors d
-          where d.blood_group = $3
-            and d.donation_type = $4
-            and d.lat is not null
-            and d.lng is not null
-            and d.available = true
-            and d.varified = true
-            and (
-              d.last_donated is null
-              or d.last_donated <= (now() at time zone 'Asia/Dhaka')::date - case when d.donation_type = 'plasma'
-                                                                                 then interval '28 days'
-                                                                                 else interval '90 days' end
-            )
-       )
-       select * from candidates
-        where distance_km <= $5 or city = $6
-        order by (distance_km <= $5) desc, distance_km asc
-        limit 60`,
-      [origin.lat, origin.lng, bloodGroup, needType, RADIUS_KM, city],
-    )
-
-    const donors = rows.map((d) => ({
-      id: d.id,
-      name: d.name,
-      email: d.email,
-      bloodGroup: d.blood_group,
-      donationType: d.donation_type,
-      city: d.city,
-      distanceKm: Math.round(Number(d.distance_km) * 10) / 10,
-      withinRadius: Number(d.distance_km) <= RADIUS_KM,
-      lastDonated: d.last_donated || null,
-      phone: situation === 'immediate' ? d.phone : null,
-      notifyStatus: null,
-    }))
-
-    let emailed = 0
-    let queued = 0
-    let emailStatus = 'not_requested'
-
-    if (situation === 'later' && donors.length > 0) {
-      emailStatus = 'queued'
-      const targets = donors.filter((donor) => donor.email).slice(0, MAX_EMAILS)
-      const deliveryByDonor = new Map()
-      if (targets.length > 0) {
-        const payload = { request }
-        const message = emailBody(payload)
-        const result = await sendMail({
-          bcc: targets.map((donor) => donor.email),
-          subject: message.subject,
-          text: message.text,
-          html: emailHtml(payload),
-        })
+      let queued = 0
+      let emailStatus = 'not_requested'
+      if (situation === 'later') {
+        const targets = donors.filter((donor) => donor.withinRadius && donor.email).slice(0, MAX_EMAILS)
+        const deliveryByDonor = new Map()
+        const actionExpiresAt = new Date(Date.parse(request.needed_at) + SCHEDULED_HOLD_MS)
         for (const donor of targets) {
-          deliveryByDonor.set(donor.id, result.status)
-          await query(
-            `insert into request_notifications (request_id, donor_id, channel, status, detail)
-             values ($1, $2, 'email', $3, $4)`,
-            [request.id, donor.id, result.status, result.error],
+          const actionToken = newSessionToken()
+          const responseUrl = requestResponseUrl(actionToken)
+          const payload = { request, responseUrl }
+          const message = emailBody(payload)
+          await client.query(
+            `insert into request_notifications
+               (request_id, donor_id, channel, status, action_token_hash, action_token_expires_at, action_status)
+             values ($1, $2, 'email', 'logged', $3, $4, 'pending')`,
+            [request.id, donor.id, hashToken(actionToken), actionExpiresAt],
           )
+          await enqueueMail(client, {
+            to: donor.email,
+            subject: message.subject,
+            text: message.text,
+            html: emailHtml(payload),
+            priority: 10,
+          })
+          deliveryByDonor.set(donor.id, 'logged')
         }
-        if (result.status === 'sent') emailed = targets.length
-        if (result.status === 'logged') queued = targets.length
+        queued = targets.length
+        emailStatus = queued > 0 ? 'logged' : 'not_requested'
+        for (const donor of donors) donor.notifyStatus = deliveryByDonor.get(donor.id) || null
       }
-      for (const donor of donors) donor.notifyStatus = deliveryByDonor.get(donor.id) || null
-      emailStatus = emailed > 0 ? 'sent' : queued > 0 ? 'logged' : targets.length > 0 ? 'failed' : 'not_requested'
-      await query(`update blood_requests set status = $3, matched_count = $2 where id = $1`, [
-        request.id,
-        donors.length,
-        emailStatus,
-      ])
-    } else {
-      await query(`update blood_requests set matched_count = $2 where id = $1`, [request.id, donors.length])
-    }
+
+      await client.query(
+        `update blood_requests set matched_count = $2, status = $3 where id = $1`,
+        [request.id, donors.length, emailStatus],
+      )
+      return { request, donors, queued, emailStatus }
+    })
+    const { request, donors, queued, emailStatus } = workflow
+    const emailed = 0
 
     let receiptStatus = 'not_requested'
     if (requesterEmail) {
-      const message = receiptMessage({ request, matchedCount: donors.length, emailedCount: emailed })
+      const message = receiptMessage({ request, matchedCount: donors.length, emailedCount: queued })
       const result = await sendMail({ to: requesterEmail, ...message })
       receiptStatus = result.status
     }
@@ -296,6 +327,7 @@ router.post(
     res.json({
       request: {
         publicId: request.public_id,
+        managementToken: manageToken,
         bloodGroup,
         needType,
         situation,
@@ -315,6 +347,73 @@ router.post(
         receipt: receiptStatus,
       },
     })
+  }),
+)
+
+router.post(
+  '/:publicId/manage',
+  rateLimit({ scope: 'request-manage', max: 30, windowMs: 60_000 }),
+  asyncRoute(async (req, res) => {
+    res.json(await getManagedRequest({ publicId: req.params.publicId, token: req.body?.token }))
+  }),
+)
+
+router.post(
+  '/:publicId/holds',
+  rateLimit({ scope: 'request-hold', max: 20, windowMs: 60_000 }),
+  asyncRoute(async (req, res) => {
+    const donorId = req.body?.donorId
+    if (typeof donorId !== 'string' || !UUID_RE.test(donorId)) {
+      throw new HttpError(400, 'Choose a valid donor.')
+    }
+    const hold = await holdImmediateDonor({
+      publicId: req.params.publicId,
+      token: req.body?.token,
+      donorId,
+      role: req.body?.role,
+    })
+    res.json(hold)
+  }),
+)
+
+router.delete(
+  '/:publicId/holds/:donorId',
+  rateLimit({ scope: 'request-hold', max: 20, windowMs: 60_000 }),
+  asyncRoute(async (req, res) => {
+    if (!UUID_RE.test(req.params.donorId)) throw new HttpError(400, 'Choose a valid donor.')
+    res.json(
+      await releaseImmediateHold({
+        publicId: req.params.publicId,
+        token: req.body?.token,
+        donorId: req.params.donorId,
+      }),
+    )
+  }),
+)
+
+router.post(
+  '/:publicId/confirm',
+  rateLimit({ scope: 'request-manage', max: 10, windowMs: 60_000 }),
+  asyncRoute(async (req, res) => {
+    const donorId = req.body?.donorId
+    if (typeof donorId !== 'string' || !UUID_RE.test(donorId)) {
+      throw new HttpError(400, 'Choose a valid donor.')
+    }
+    res.json(
+      await confirmManagedDonation({
+        publicId: req.params.publicId,
+        token: req.body?.token,
+        donorId,
+      }),
+    )
+  }),
+)
+
+router.post(
+  '/scheduled-response',
+  rateLimit({ scope: 'scheduled-response', max: 30, windowMs: 60_000 }),
+  asyncRoute(async (req, res) => {
+    res.json(await respondToScheduledRequest({ token: req.body?.token, action: req.body?.action }))
   }),
 )
 

@@ -2,6 +2,8 @@ import nodemailer from 'nodemailer'
 import { query, withTransaction } from '../db.js'
 import { getMailCredentials } from './mail.js'
 import { backoffSeconds, classifySmtpFailure } from './mailPolicy.js'
+import { queueDueScheduledFollowups } from './requestWorkflow.js'
+import { generateDonationCertificates } from './certificateWorker.js'
 
 const DEFAULT_BATCH_SIZE = 5
 const MAX_BATCH_SIZE = 10
@@ -276,6 +278,8 @@ async function deliverEmail(email, credentials) {
 }
 
 export async function processEmailOutbox({ batchSize = DEFAULT_BATCH_SIZE } = {}) {
+  const followupsQueued = await queueDueScheduledFollowups()
+  const certificates = await generateDonationCertificates()
   const credentials = getMailCredentials()
   if (credentials.length === 0) {
     const error = new Error('No Gmail credentials are configured; queued emails remain pending.')
@@ -302,5 +306,5 @@ export async function processEmailOutbox({ batchSize = DEFAULT_BATCH_SIZE } = {}
        from email_outbox
       where status = 'PENDING'`,
   )
-  return { ...result, pending: rows[0].pending }
+  return { ...result, pending: rows[0].pending, followupsQueued, certificatesQueued: certificates.queued }
 }

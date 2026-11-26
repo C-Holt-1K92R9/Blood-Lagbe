@@ -7,6 +7,8 @@ import searchRoutes from './routes/search.js'
 import emergencyRoutes from './routes/emergency.js'
 import contactRoutes from './routes/contact.js'
 import emailOutboxRoutes from './routes/emailOutbox.js'
+import recognitionRoutes from './routes/recognition.js'
+import certificateJobRoutes from './routes/certificateJob.js'
 import metaRoutes from './routes/meta.js'
 
 const app = express()
@@ -25,6 +27,8 @@ app.use('/api/requests', searchRoutes)
 app.use('/api/emergency', emergencyRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api', emailOutboxRoutes)
+app.use('/api', certificateJobRoutes)
+app.use('/api', recognitionRoutes)
 app.use('/api', metaRoutes)
 app.use('/api', authRoutes)
 app.use('/api', notFound)

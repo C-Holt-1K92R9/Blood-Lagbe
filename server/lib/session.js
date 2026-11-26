@@ -22,9 +22,11 @@ export function todayIso() {
   return DHAKA_DATE.format(new Date())
 }
 
-export function eligibilityFor(donationType, lastDonated, available) {
+export function eligibilityFor(donationType, lastDonated, available, recoveryUntil = null, lockedUntil = null) {
   const interval = DONATION_INTERVAL_DAYS[donationType] || 90
   const nextEligibleAt = lastDonated ? addDays(lastDonated, interval) : null
+  const recovering = recoveryUntil && new Date(recoveryUntil).getTime() > Date.now()
+  const held = lockedUntil && new Date(lockedUntil).getTime() > Date.now()
   const daysUntilEligible = nextEligibleAt
     ? Math.max(
         0,
@@ -33,19 +35,20 @@ export function eligibilityFor(donationType, lastDonated, available) {
         ),
       )
     : 0
-  const reason = !available ? 'unavailable' : daysUntilEligible > 0 ? 'cooldown' : 'eligible'
+  const reason = recovering ? 'recovery' : held ? 'held' : !available ? 'unavailable' : daysUntilEligible > 0 ? 'cooldown' : 'eligible'
   return {
-    eligible: Boolean(available) && daysUntilEligible === 0,
+    eligible: Boolean(available) && !recovering && !held && daysUntilEligible === 0,
     nextEligibleAt,
     daysUntilEligible,
     intervalDays: interval,
     reason,
+    recoveryUntil: recoveryUntil || null,
   }
 }
 
 export function publicDonor(row) {
   if (!row) return null
-  const eligibility = eligibilityFor(row.donation_type, row.last_donated, row.available)
+  const eligibility = eligibilityFor(row.donation_type, row.last_donated, row.available, row.recovery_until, row.locked_until)
   return {
     id: row.id,
     name: row.name,
@@ -61,6 +64,9 @@ export function publicDonor(row) {
     lng: row.lng,
     locationSource: row.location_source,
     available: row.available,
+    showOnHonorWall: Boolean(row.show_on_honor_wall),
+    recoveryUntil: row.recovery_until || null,
+    lockedUntil: row.locked_until || null,
     createdAt: row.created_at,
     eligibility,
   }

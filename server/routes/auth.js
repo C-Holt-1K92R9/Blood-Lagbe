@@ -343,6 +343,18 @@ router.patch(
       body.available === undefined
         ? current.available
         : body.available === true || body.available === 'true'
+    if (body.showOnHonorWall !== undefined && typeof body.showOnHonorWall !== 'boolean') {
+      throw new HttpError(400, 'Honorary Donors wall preference must be true or false.', { field: 'showOnHonorWall' })
+    }
+    const showOnHonorWall =
+      body.showOnHonorWall === undefined ? current.show_on_honor_wall : body.showOnHonorWall
+    const wantsToEnable = body.available !== undefined && available && !current.available
+    if (
+      wantsToEnable &&
+      [current.locked_until, current.recovery_until].some((until) => until && new Date(until).getTime() > Date.now())
+    ) {
+      throw new HttpError(409, 'Availability cannot be turned on while a donor hold or recovery period is active.')
+    }
 
     const addressChanged =
       addressText !== current.address_text || city !== current.city || division !== current.division
@@ -364,12 +376,38 @@ router.patch(
       `update donors set
          name = $2, phone = $3, blood_group = $4, donation_type = $5, last_donated = $6,
          division = $7, city = $8, address_text = $9, lat = $10, lng = $11,
-         location_source = $12, available = $13, updated_at = now()
+         location_source = $12, available = $13, show_on_honor_wall = $14, updated_at = now()
        where id = $1
+         and (
+           $15 = false
+           or (
+             (locked_until is null or locked_until <= now())
+             and (recovery_until is null or recovery_until <= now())
+           )
+         )
        returning *`,
-      [current.id, name, phone, bloodGroup, donationType, lastDonated, division, city, addressText, lat, lng, source, available],
+      [
+        current.id,
+        name,
+        phone,
+        bloodGroup,
+        donationType,
+        lastDonated,
+        division,
+        city,
+        addressText,
+        lat,
+        lng,
+        source,
+        available,
+        showOnHonorWall,
+        wantsToEnable,
+      ],
     )
 
+    if (!rows[0]) {
+      throw new HttpError(409, 'Availability cannot be turned on while a donor hold or recovery period is active.')
+    }
     res.json({ donor: publicDonor(rows[0]) })
   }),
 )

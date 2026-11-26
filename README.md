@@ -15,14 +15,18 @@ The project is free for seekers and designed to keep the search process simple: 
 - Filter by blood group, need type, timing, division, city, and address
 - Match within a fixed 10 km radius before checking the rest of the selected city
 - Respect blood and plasma donation waiting periods
-- Contact immediate matches directly by phone
-- Email scheduled requests to eligible donors
+- Contact immediate matches by phone or WhatsApp, with temporary primary/backup holds
+- Email scheduled requests to up to 10 nearby eligible donors with private accept/decline links
+- Confirm donations and automatically enforce donor recovery intervals
+- Generate and email honorary donor certificates after confirmed donations
+- View private donation achievements and opt in to a name-only public honorary wall
+- Explain beta limitations, email delays and service changes
 - Register and manage a donor profile
 - Update availability and record the latest donation
 - Reset a forgotten password using a time-limited email code
 - Post and close public emergency requests
 - Send categorized feedback through the contact page, saved to the database
-- Automatically delete emergency posts and scheduled requests after their needed time passes
+- Expire scheduled requests four hours after their requested time and retain terminal requests for 30 days
 - Use password-authenticated donor accounts with 30-day sessions
 - Run the React client and Express API together in development and production
 
@@ -37,7 +41,9 @@ The project is free for seekers and designed to keep the search process simple: 
 5. Recent donors are excluded according to the donation interval:
    - blood: 90 days
    - plasma: 28 days
-6. Immediate requests expose matching phone numbers for direct calls. Scheduled requests are saved and up to 25 matched donors receive individual queued emails.
+6. Immediate requests expose matching phone numbers and let the seeker hold a primary and backup donor for two hours. Scheduled requests are saved and up to 10 eligible donors within 10 km receive individual queued emails with private accept/decline links.
+7. Donation confirmation starts the donor's 90-day blood or 28-day plasma recovery period; availability is restored only if it was enabled before the donation.
+8. A background job generates a downloadable SVG certificate for each confirmed donation and queues it by email. Donors can view their private achievement history and choose whether to appear by name and donation count on the public wall.
 
 Donor registration accepts Gmail, Yahoo, and Outlook-family addresses. New accounts remain unavailable until the 6-digit email code is verified; codes expire after 30 minutes. If registration is interrupted, sign in and choose **Verify now** to request a fresh code.
 
@@ -151,7 +157,8 @@ The production server runs on `http://localhost:4173` unless `PORT` is configure
 | `GMAIL_BACKUP_2_USER`, `GMAIL_BACKUP_2_APP_PASSWORD` | Optional | Second fallback Gmail account; backups 3–5 are also supported |
 | `GMAIL_DAILY_LIMIT` | Optional | Per-account rolling 24-hour limit; defaults to 450 and cannot exceed 500 |
 | `MAIL_FROM` | Optional | Sender alias configured in Gmail |
-| `CRON_SECRET` | Required for worker/cleanup | Bearer secret for the email outbox worker and scheduled emergency-board cleanup |
+| `PUBLIC_APP_URL` | Optional locally; required outside Vercel in production | Public origin used to build scheduled donor response links |
+| `CRON_SECRET` | Required for worker/cleanup | Bearer secret for email delivery, certificate generation and scheduled cleanup endpoints |
 | `FEEDBACK_EXPORT_SECRET` | Required for feedback exports | Bearer secret protecting the feedback CSV email endpoint |
 | `PORT` | Optional | Server port; defaults to 5173 in development and 4173 in production |
 | `NODE_ENV` | Optional | Set to `production` for secure production cookies and static serving |
@@ -188,6 +195,10 @@ The seed also creates three public emergency board posts.
 | --- | --- |
 | `/` | Landing page |
 | `/find` | Blood and plasma request form and donor results |
+| `/request/:publicId` | Private request holds and donation confirmation (same browser session) |
+| `/request-response/:token` | Private scheduled donor response page |
+| `/honorary-donors` | Public opt-in donors wall (names and confirmed donation counts only) |
+| `/beta-disclaimer` | Beta phase, email limitations and support contact |
 | `/register` | Donor registration |
 | `/login` | Donor sign-in |
 | `/forgot-password` | Reset a donor password by email code |
@@ -204,6 +215,7 @@ The seed also creates three public emergency board posts.
 | --- | --- | --- |
 | `GET` | `/api/health` | Database and mail status |
 | `GET` | `/api/process-email-outbox` | Process a bounded batch of queued emails; requires `CRON_SECRET` |
+| `GET` | `/api/process-certificates` | Generate missing donation certificates; requires `CRON_SECRET` |
 | `GET` | `/api/cleanup-board` | Delete emergency board posts older than 30 days; requires `CRON_SECRET` |
 | `POST` | `/api/register` | Create a donor account and session |
 | `POST` | `/api/login` | Sign in a donor |
@@ -215,9 +227,17 @@ The seed also creates three public emergency board posts.
 | `PATCH` | `/api/me/location` | Set GPS coordinates or re-geocode an address |
 | `POST` | `/api/me/password` | Change password |
 | `GET` | `/api/me/requests` | List requests sent to the donor |
+| `GET` | `/api/me/achievements` | List the signed-in donor's confirmed donation count and certificates |
+| `GET` | `/api/me/certificates/:certificateId/download` | Download a certificate owned by the signed-in donor |
 | `DELETE` | `/api/me` | Delete the donor account |
 | `POST` | `/api/requests/search` | Resolve a request and find eligible donors |
+| `POST` | `/api/requests/:publicId/manage` | Read private request management details using its session token |
+| `POST` | `/api/requests/:publicId/holds` | Hold an immediate-request donor as primary or backup |
+| `DELETE` | `/api/requests/:publicId/holds/:donorId` | Release an immediate-request donor hold |
+| `POST` | `/api/requests/:publicId/confirm` | Confirm a donation and start donor recovery |
+| `POST` | `/api/requests/scheduled-response` | View or respond to a scheduled request using a private donor token |
 | `GET` | `/api/requests/:publicId` | Get a public request summary |
+| `GET` | `/api/honorary-donors` | List opted-in donor names and confirmed donation counts only |
 | `GET` | `/api/emergency` | List open emergency posts |
 | `POST` | `/api/emergency` | Create an emergency post |
 | `POST` | `/api/emergency/:publicId/fulfil` | Fulfil a post using its private close token |
@@ -230,7 +250,7 @@ Both methods queue a new export email on every call. `HEAD` is supported for Upt
 
 ## Data Model
 
-The main database tables are:
+The main database tables and donor preferences are:
 
 - `donors`
 - `sessions`
@@ -244,13 +264,13 @@ The main database tables are:
 - `emergency_posts`
 - `contact_feedback`
 
-Expired emergency posts and scheduled blood requests are deleted before each application database query. The database schema indexes their requested times so this cleanup stays efficient.
+Expired emergency posts are deleted before each application database query. Scheduled requests expire four hours after their requested time and terminal requests are retained for 30 days. Active donor holds expire at their configured deadline; recovery periods are applied automatically during database cleanup.
 
 See [server/schema.sql](server/schema.sql) for constraints, indexes, and relations.
 
-The schema includes durable outbox scheduling and retry fields, donor hold/recovery fields, request action-token fields, and per-donation certificate tracking. Reapplying `npm run db:setup` is additive and idempotent; historical BCC outbox records are retained as legacy records rather than being automatically re-queued.
+The schema includes durable outbox scheduling and retry fields, donor hold/recovery fields, request action-token fields, opt-in honorary wall visibility, and per-donation certificate tracking. Reapplying `npm run db:setup` is additive and idempotent; historical BCC outbox records are retained as legacy records rather than being automatically re-queued.
 
-Outgoing mail is queued by the API and delivered by `GET /api/process-email-outbox`. Configure a recurring external pinger to call this endpoint with `Authorization: Bearer <CRON_SECRET>`; the worker processes a bounded batch on each call. If no Gmail credential is configured, queued messages remain pending and the endpoint returns `503`.
+Outgoing mail is queued by the API and delivered by `GET /api/process-email-outbox`. Configure a recurring external pinger to call this endpoint with `Authorization: Bearer <CRON_SECRET>`; the worker processes a bounded batch on each call, queues due scheduled-request follow-ups, and creates certificates for confirmed donation events. You can also call `GET /api/process-certificates` from a daily pinger; processing is idempotent, so an event receives only one certificate and email. If no Gmail credential is configured, queued messages remain pending and the outbox endpoint returns `503`.
 
 ## Deployment
 
@@ -261,7 +281,9 @@ Outgoing mail is queued by the API and delivered by `GET /api/process-email-outb
 5. Start the app with `npm start`.
 6. Set `NODE_ENV=production` when using HTTPS. The session cookie then receives the `Secure` flag.
 
-Expired requests are removed before each application database query. The Vercel scheduled cleanup also removes emergency board posts older than 30 days.
+Emergency posts are removed when their needed time passes. Scheduled blood requests expire four hours after their needed time and are retained for 30 days after reaching a terminal state.
+
+Set `PUBLIC_APP_URL` to the canonical public application origin when deploying outside Vercel so scheduled donor links open the correct site. The navigation BETA badge links to the beta disclaimer, which is also available in the footer.
 
 ### Deploying to Vercel
 
@@ -274,6 +296,8 @@ Before using the app, run `npm run db:setup` once against the same database conf
 - Public emergency posts expose phone numbers and selected location details.
 - Close tokens are browser-local secrets for managing emergency posts.
 - Donor coordinates are not publicly disclosed.
+- Honorary wall visibility is opt-in; the public endpoint returns only the donor name and confirmed donation count.
+- Certificate download routes require the donor's authenticated session and only return that donor's own certificate.
 - Password reset uses a six-digit email code that expires after 30 minutes and revokes existing sessions.
 - Emergency posts can be closed by the browser that created them, are deleted when their requested time passes, and are also removed after 30 days.
 

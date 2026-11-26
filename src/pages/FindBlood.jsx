@@ -59,6 +59,10 @@ export default function FindBlood() {
   const [serverError, setServerError] = useState('')
   const [phase, setPhase] = useState('idle')
   const [result, setResult] = useState(null)
+  const [managementToken, setManagementToken] = useState('')
+  const [holds, setHolds] = useState([])
+  const [holdBusy, setHoldBusy] = useState('')
+  const [holdError, setHoldError] = useState('')
 
   const set = (key) => (e) => {
     const value = e.target.value
@@ -103,6 +107,11 @@ export default function FindBlood() {
           lng: coords?.lng,
         },
       })
+      const requestKey = `donorkoi-request:${data.request.publicId}`
+      window.sessionStorage.setItem(requestKey, data.request.managementToken)
+      setManagementToken(data.request.managementToken)
+      setHolds([])
+      setHoldError('')
       setResult(data)
       setPhase('done')
     } catch (err) {
@@ -114,12 +123,50 @@ export default function FindBlood() {
   }
 
   const reset = () => {
+    if (result?.request?.publicId) {
+      window.sessionStorage.removeItem(`donorkoi-request:${result.request.publicId}`)
+    }
     setForm(emptyForm)
     setCoords(null)
     setErrors({})
     setServerError('')
     setResult(null)
+    setManagementToken('')
+    setHolds([])
+    setHoldError('')
     setPhase('idle')
+  }
+
+  const holdDonor = async (donor, role) => {
+    setHoldBusy(donor.id)
+    setHoldError('')
+    try {
+      const data = await api(`/requests/${result.request.publicId}/holds`, {
+        method: 'POST',
+        body: { token: managementToken, donorId: donor.id, role },
+      })
+      setHolds((current) => [...current.filter((hold) => hold.donorId !== donor.id), data.hold])
+    } catch (err) {
+      setHoldError(err.message)
+    } finally {
+      setHoldBusy('')
+    }
+  }
+
+  const releaseDonor = async (donorId) => {
+    setHoldBusy(donorId)
+    setHoldError('')
+    try {
+      await api(`/requests/${result.request.publicId}/holds/${donorId}`, {
+        method: 'DELETE',
+        body: { token: managementToken },
+      })
+      setHolds((current) => current.filter((hold) => hold.donorId !== donorId))
+    } catch (err) {
+      setHoldError(err.message)
+    } finally {
+      setHoldBusy('')
+    }
   }
 
   const emailsSent = result?.emails?.sent || 0
@@ -474,6 +521,12 @@ export default function FindBlood() {
                     <UsersThree size={15} aria-hidden="true" />
                     Emergency board
                   </Link>
+                  <Link
+                    to={`/request/${result.request.publicId}`}
+                    className="button-sm rounded-xl border border-line px-3 py-2 text-strong transition-colors duration-300 hover:bg-lifted"
+                  >
+                    Manage request
+                  </Link>
                 </div>
 
                 {result.donors.length === 0 ? (
@@ -515,7 +568,9 @@ export default function FindBlood() {
                               ? `We emailed ${emailsSent} ${emailsSent === 1 ? 'donor' : 'donors'} with your name, phone number, address and schedule. They will contact you directly.`
                               : emailsQueued > 0
                                 ? `${emailsQueued} donor ${emailsQueued === 1 ? 'email is' : 'emails are'} queued for delivery. Email may be delayed while the outbox is processed.`
-                                : 'We could not deliver the donor emails. Call the donors below directly if the need is urgent.'
+                                : result.emails.status === 'not_requested'
+                                  ? 'No eligible donor within 10 km has an email address for scheduled outreach. Call the listed donors directly if the need is urgent.'
+                                  : 'We could not deliver the donor emails. Call the donors below directly if the need is urgent.'
                             : `${result.donors.length} eligible ${result.donors.length === 1 ? 'donor is' : 'donors are'} listed below. Call the closest match directly.`}
                         </span>
                       </p>
@@ -534,6 +589,26 @@ export default function FindBlood() {
                           We could not email your receipt. Keep the reference above for follow-up.
                         </p>
                       )}
+                      {holdError && <p className="caption-2 mt-2 pl-6 text-brand" role="alert">{holdError}</p>}
+                      {holds.length > 0 && (
+                        <div className="mt-3 space-y-2 pl-6">
+                          {holds.map((hold) => (
+                            <div key={hold.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-good/20 bg-raised px-3 py-2">
+                              <p className="caption-2 text-strong">
+                                {hold.role === 'primary' ? 'Primary' : 'Backup'}: {hold.name} · hold until {timeLabel(hold.holdExpiresAt)}
+                              </p>
+                              <button
+                                type="button"
+                                disabled={holdBusy === hold.donorId}
+                                onClick={() => releaseDonor(hold.donorId)}
+                                className="caption-3 rounded-lg border border-line px-2.5 py-1.5 text-mute hover:text-strong disabled:opacity-60"
+                              >
+                                Release hold
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="divide-y divide-line">
@@ -542,6 +617,10 @@ export default function FindBlood() {
                         note="Nearest eligible donors, sorted by distance"
                         donors={near}
                         situation={result.request.situation}
+                        holds={holds}
+                        holdBusy={holdBusy}
+                        managementToken={managementToken}
+                        onHold={holdDonor}
                       />
                       {sameCity.length > 0 && (
                         <Group
@@ -549,6 +628,10 @@ export default function FindBlood() {
                           note="Same city, beyond the 10 km radius"
                           donors={sameCity}
                           situation={result.request.situation}
+                          holds={holds}
+                          holdBusy={holdBusy}
+                          managementToken={managementToken}
+                          onHold={holdDonor}
                         />
                       )}
                     </div>
@@ -636,7 +719,7 @@ export default function FindBlood() {
   )
 }
 
-function Group({ title, note, donors, situation }) {
+function Group({ title, note, donors, situation, holds = [], holdBusy = '', managementToken = '', onHold }) {
   if (donors.length === 0) return null
   return (
     <section>
@@ -646,6 +729,7 @@ function Group({ title, note, donors, situation }) {
       </div>
       <ul>
         {donors.map((d) => {
+          const currentHold = holds.find((hold) => hold.donorId === d.id)
           return (
             <li
               key={d.id}
@@ -678,14 +762,24 @@ function Group({ title, note, donors, situation }) {
 
                 <div className="flex shrink-0 flex-col items-stretch gap-2">
                   {situation === 'immediate' && d.phone ? (
-                    <a
-                      href={`tel:${d.phone.replace(/[^\d+]/g, '')}`}
-                      className="button-sm flex items-center justify-center gap-1.5 rounded-xl bg-brand-solid px-4 py-2 text-onbrand transition-colors duration-300 hover:bg-brand-solid-hover"
-                      aria-label={`Call ${d.name} on ${d.phone}`}
-                    >
-                      <PhoneCall size={16} weight="bold" aria-hidden="true" />
-                      Call now
-                    </a>
+                    <>
+                      <a
+                        href={`tel:${d.phone.replace(/[^\d+]/g, '')}`}
+                        className="button-sm flex items-center justify-center gap-1.5 rounded-xl bg-brand-solid px-4 py-2 text-onbrand transition-colors duration-300 hover:bg-brand-solid-hover"
+                        aria-label={`Call ${d.name} on ${d.phone}`}
+                      >
+                        <PhoneCall size={16} weight="bold" aria-hidden="true" />
+                        Call now
+                      </a>
+                      <a
+                        href={`https://wa.me/${d.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${d.name}, I am contacting you about a ${d.bloodGroup} ${DONATION_LABEL[d.donationType].toLowerCase()} donation request. Are you available to help?`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="caption-5 rounded-xl border border-line px-3 py-2 text-center text-mute hover:text-strong"
+                      >
+                        WhatsApp
+                      </a>
+                    </>
                   ) : (
                     <span className="caption-5 inline-flex items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-mute">
                       <EnvelopeSimple size={14} aria-hidden="true" />
@@ -700,6 +794,26 @@ function Group({ title, note, donors, situation }) {
                   )}
                   {situation === 'immediate' && d.phone && (
                     <span className="caption-5 text-center font-mono text-faint">{d.phone}</span>
+                  )}
+                  {situation === 'immediate' && managementToken && !currentHold && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={holdBusy === d.id}
+                        onClick={() => onHold(d, 'primary')}
+                        className="caption-5 rounded-xl border border-brand/30 px-3 py-2 text-brand hover:bg-brand-soft disabled:opacity-60"
+                      >
+                        Hold as primary
+                      </button>
+                      <button
+                        type="button"
+                        disabled={holdBusy === d.id}
+                        onClick={() => onHold(d, 'backup')}
+                        className="caption-5 rounded-xl border border-line px-3 py-2 text-mute hover:text-strong disabled:opacity-60"
+                      >
+                        Hold as backup
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

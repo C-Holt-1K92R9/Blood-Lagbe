@@ -66,29 +66,41 @@ function serializeAttachments(attachments) {
 }
 
 export async function sendMail({ to, bcc, subject, text, html, attachments, priority = 0, scheduledAt }) {
-  const recipients = [...new Set([...(Array.isArray(bcc) ? bcc : []), to].filter(Boolean).map(String))]
-  if (recipients.length === 0) throw new TypeError('At least one email recipient is required.')
-
   const queuedAttachments = serializeAttachments(attachments)
   const scheduledFor = scheduledAt ? new Date(scheduledAt) : new Date()
   if (Number.isNaN(scheduledFor.getTime())) throw new TypeError('The scheduled email time is invalid.')
 
-  await withTransaction(async (client) => {
-    for (const recipient of recipients) {
-      await client.query(
-        `insert into email_outbox
-           (to_email, recipient_email, subject, body, body_html, attachments_json,
-            provider, status, priority, scheduled_at)
-         values ($1, $1, $2, $3, $4, $5::jsonb, 'gmail', 'PENDING', $6, $7)`,
-        [recipient, subject, text || '', html || null, JSON.stringify(queuedAttachments), priority, scheduledFor],
-      )
-    }
-  })
+  const queued = await withTransaction((client) =>
+    enqueueMail(client, { to, bcc, subject, text, html, attachments: queuedAttachments, priority, scheduledAt: scheduledFor }),
+  )
 
   return {
     status: 'logged',
     provider: 'outbox',
-    queued: recipients.length,
+    queued,
     error: null,
   }
+}
+
+export async function enqueueMail(client, { to, bcc, subject, text, html, attachments, priority = 0, scheduledAt }) {
+  const recipients = [...new Set([...(Array.isArray(bcc) ? bcc : []), to].filter(Boolean).map(String))]
+  if (recipients.length === 0) throw new TypeError('At least one email recipient is required.')
+
+  const queuedAttachments = Array.isArray(attachments) && attachments.every((item) => item?.contentBase64)
+    ? attachments
+    : serializeAttachments(attachments)
+  const scheduledFor = scheduledAt ? new Date(scheduledAt) : new Date()
+  if (Number.isNaN(scheduledFor.getTime())) throw new TypeError('The scheduled email time is invalid.')
+
+  for (const recipient of recipients) {
+    await client.query(
+      `insert into email_outbox
+         (to_email, recipient_email, subject, body, body_html, attachments_json,
+          provider, status, priority, scheduled_at)
+       values ($1, $1, $2, $3, $4, $5::jsonb, 'gmail', 'PENDING', $6, $7)`,
+      [recipient, subject, text || '', html || null, JSON.stringify(queuedAttachments), priority, scheduledFor],
+    )
+  }
+
+  return recipients.length
 }

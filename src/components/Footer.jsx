@@ -8,12 +8,21 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8">
         <div className="grid gap-10 md:grid-cols-12">
           <div className="md:col-span-4">
-            <Link to="/" className="flex w-fit items-center gap-2 rounded-lg" aria-label="Donor Koi home">
-              <Logo className="h-7 w-7" />
-              <span className="title-2 tracking-tight">Donor Koi</span>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link to="/" className="flex w-fit items-center gap-2 rounded-lg" aria-label="Donor Koi home">
+                <Logo className="h-7 w-7" />
+                <span className="title-2 tracking-tight">Donor Koi</span>
+              </Link>
+              <Link
+                to="/beta-disclaimer"
+                className="caption-5 rounded-full border border-amber/25 bg-amber-soft px-2 py-1 font-semibold tracking-wider text-amber"
+                aria-label="BETA — read the beta disclaimer"
+              >
+                BETA
+              </Link>
+            </div>
             <p className="body-6 mt-4 max-w-xs text-mute">
-              Connecting families in an emergency with donors who are nearby, verified and available right now.
+              Connecting families in an emergency with registered donors who are nearby and available right now.
             </p>
             <div className="mt-6 flex items-start gap-3 rounded-xl border border-line bg-raised p-4">
               <Siren size={20} className="mt-0.5 shrink-0 text-brand" weight="regular" aria-hidden="true" />
@@ -28,6 +37,7 @@ export default function Footer() {
             <p className="caption-3 uppercase tracking-wider text-faint">Product</p>
             <ul className="mt-3 space-y-3">
               <li><Link to="/find" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Find blood</Link></li>
+              <li><Link to="/honorary-donors" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Honorary Donors</Link></li>
               <li><Link to="/emergency" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Emergency board</Link></li>
               <li><Link to="/register" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Become a donor</Link></li>
               <li><Link to="/contact" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Contact &amp; feedback</Link></li>
@@ -41,6 +51,7 @@ export default function Footer() {
               <li><Link to="/privacy" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Privacy policy</Link></li>
               <li><Link to="/terms" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Terms &amp; conditions</Link></li>
               <li><Link to="/donation-disclaimer" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Donation disclaimer</Link></li>
+              <li><Link to="/beta-disclaimer" className="caption-1 text-mute transition-colors duration-300 hover:text-strong">Beta disclaimer</Link></li>
             </ul>
           </nav>
         </div>

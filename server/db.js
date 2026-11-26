@@ -32,8 +32,44 @@ async function cleanupExpiredRequests() {
         execute 'delete from public.emergency_posts where needed_at is not null and needed_at <= now()';
       end if;
       if to_regclass('public.blood_requests') is not null then
+        execute 'update public.blood_requests
+                    set status = ''expired''
+                  where situation = ''later''
+                    and needed_at is not null
+                    and needed_at <= now() - interval ''4 hours''
+                    and status not in (''fulfilled'', ''expired'', ''cancelled'')';
         execute 'delete from public.blood_requests
-                  where situation = ''later'' and needed_at is not null and needed_at <= now()';
+                  where situation = ''later''
+                    and needed_at is not null
+                    and needed_at <= now() - interval ''30 days''
+                    and status in (''fulfilled'', ''expired'', ''cancelled'')';
+      end if;
+      if to_regclass('public.request_donor_holds') is not null then
+        execute 'update public.request_donor_holds
+                    set status = ''expired'', released_at = now()
+                  where status = ''held'' and hold_expires_at <= now()';
+        if to_regclass('public.blood_requests') is not null then
+          execute 'update public.blood_requests r
+                      set status = ''searched''
+                    where r.situation = ''immediate''
+                      and r.status = ''active''
+                      and not exists (
+                        select 1 from public.request_donor_holds h
+                         where h.request_id = r.id
+                           and h.status = ''held''
+                           and h.hold_expires_at > now()
+                      )';
+        end if;
+      end if;
+      if to_regclass('public.donors') is not null then
+        execute 'update public.donors
+                    set locked_until = null, locked_by_request_id = null
+                  where locked_until is not null and locked_until <= now()';
+        execute 'update public.donors
+                    set available = restore_available_after_recovery,
+                        restore_available_after_recovery = false,
+                        recovery_until = null
+                  where recovery_until is not null and recovery_until <= now()';
       end if;
     end;
     $$

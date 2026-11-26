@@ -20,6 +20,7 @@ create table if not exists donors (
   available       boolean not null default true,
   locked_until    timestamptz,
   recovery_until  timestamptz,
+  restore_available_after_recovery boolean not null default false,
   show_on_honor_wall boolean not null default false,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
@@ -33,6 +34,7 @@ alter table donors add column if not exists otp integer;
 alter table donors add column if not exists otp_expires_at timestamptz;
 alter table donors add column if not exists locked_until timestamptz;
 alter table donors add column if not exists recovery_until timestamptz;
+alter table donors add column if not exists restore_available_after_recovery boolean not null default false;
 alter table donors add column if not exists show_on_honor_wall boolean not null default false;
 update donors set varified = true where varified = false and otp is null;
 
@@ -78,6 +80,8 @@ alter table blood_requests add column if not exists manage_token_expires_at time
 
 create index if not exists requests_created_idx on blood_requests (created_at desc);
 create index if not exists requests_city_idx on blood_requests (city);
+create index if not exists requests_immediate_active_idx on blood_requests (id)
+  where situation = 'immediate' and status = 'active';
 create index if not exists requests_expiry_idx on blood_requests (needed_at)
   where situation = 'later' and needed_at is not null;
 
@@ -96,6 +100,7 @@ alter table request_notifications add column if not exists action_token_hash tex
 alter table request_notifications add column if not exists action_token_expires_at timestamptz;
 alter table request_notifications add column if not exists action_status text;
 alter table request_notifications add column if not exists accepted_at timestamptz;
+alter table request_notifications add column if not exists followup_queued_at timestamptz;
 create index if not exists notifications_action_token_idx
   on request_notifications (action_token_hash)
   where action_token_hash is not null;
@@ -182,6 +187,9 @@ create table if not exists request_donor_holds (
 
 create unique index if not exists request_donor_holds_active_donor_key
   on request_donor_holds (donor_id)
+  where status = 'held';
+create unique index if not exists request_donor_holds_active_role_key
+  on request_donor_holds (request_id, role)
   where status = 'held';
 create index if not exists request_donor_holds_request_idx
   on request_donor_holds (request_id, status, created_at);

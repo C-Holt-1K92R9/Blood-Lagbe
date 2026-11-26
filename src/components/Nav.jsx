@@ -71,10 +71,19 @@ export default function Nav() {
         style={{ backgroundColor: 'var(--nav-surface)' }}
       >
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Donor Koi home">
-            <Logo className="h-7 w-7" />
-            <span className="title-3 tracking-tight text-strong">Donor Koi</span>
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Donor Koi home">
+              <Logo className="h-7 w-7" />
+              <span className="title-3 tracking-tight text-strong">Donor Koi</span>
+            </Link>
+            <Link
+              to="/beta-disclaimer"
+              className="caption-5 rounded-full border border-amber/25 bg-amber-soft px-2 py-1 font-semibold tracking-wider text-amber transition-colors hover:border-amber"
+              aria-label="BETA — read the beta disclaimer"
+            >
+              BETA
+            </Link>
+          </div>
 
           <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
             {LINKS.map((link) => (
