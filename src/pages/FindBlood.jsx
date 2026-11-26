@@ -525,7 +525,7 @@ export default function FindBlood() {
                     to={`/request/${result.request.publicId}`}
                     className="button-sm rounded-xl border border-line px-3 py-2 text-strong transition-colors duration-300 hover:bg-lifted"
                   >
-                    Manage request
+                    {result.request.situation === 'immediate' ? 'Manage & confirm donation' : 'Manage request'}
                   </Link>
                 </div>
 
@@ -572,6 +572,8 @@ export default function FindBlood() {
                                   ? 'No eligible donor within 10 km has an email address for scheduled outreach. Call the listed donors directly if the need is urgent.'
                                   : 'We could not deliver the donor emails. Call the donors below directly if the need is urgent.'
                             : `${result.donors.length} eligible ${result.donors.length === 1 ? 'donor is' : 'donors are'} listed below. Call the closest match directly.`}
+                          {result.request.situation === 'immediate' &&
+                            ' Hold a donor before calling. After the donation happens, open Manage & confirm donation and confirm only the donor who actually donated; this records it on their donor profile.'}
                         </span>
                       </p>
                       {receiptStatus === 'sent' && (
