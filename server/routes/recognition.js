@@ -3,7 +3,7 @@ import { query } from '../db.js'
 import { asyncRoute, HttpError } from '../lib/http.js'
 import { requireDonor } from '../lib/session.js'
 import { rateLimit } from '../lib/ratelimit.js'
-import { createCertificatePdf } from '../lib/certificateArtwork.js'
+import { createCertificatePdf, createCertificateSvg } from '../lib/certificateArtwork.js'
 
 const router = Router()
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -73,27 +73,27 @@ router.get(
   asyncRoute(async (req, res) => {
     if (!UUID_RE.test(req.params.certificateId)) throw new HttpError(404, 'Certificate not found.')
     const { rows } = await query(
-      `select file_name, content_type, artifact_data
-         from certificates
-        where id = $1 and donor_id = $2 and status = 'ready'
+      `select c.certificate_number, e.donated_at, d.name
+         from certificates c
+         join donation_events e on e.id = c.donation_event_id
+         join donors d on d.id = c.donor_id
+        where c.id = $1 and c.donor_id = $2 and c.status = 'ready'
         limit 1`,
       [req.params.certificateId, req.donor.id],
     )
-    if (!rows[0] || !rows[0].artifact_data) throw new HttpError(404, 'Certificate not found.')
+    if (!rows[0]) throw new HttpError(404, 'Certificate not found.')
 
-    let fileName = String(rows[0].file_name || 'donor-koi-certificate.pdf').replace(/[^A-Za-z0-9_.-]/g, '-')
-    let contentType = rows[0].content_type || 'application/pdf'
-    let artifact = rows[0].artifact_data
-    const isSvg = contentType === 'image/svg+xml' || fileName.toLowerCase().endsWith('.svg')
-    if (isSvg) {
-      const svg = Buffer.isBuffer(artifact) ? artifact.toString('utf8') : String(artifact)
-      artifact = await createCertificatePdf(svg)
-      fileName = `${fileName.replace(/\.[^.]+$/, '')}.pdf`
-      contentType = 'application/pdf'
-    }
+    const certificateNumber = String(rows[0].certificate_number || 'certificate')
+      .replace(/[^A-Za-z0-9_.-]/g, '-')
+    const svg = createCertificateSvg({
+      donorName: rows[0].name,
+      donatedAt: rows[0].donated_at,
+      certificateNumber: rows[0].certificate_number,
+    })
+    const artifact = await createCertificatePdf(svg)
     res
-      .setHeader('Content-Type', contentType)
-      .setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+      .setHeader('Content-Type', 'application/pdf')
+      .setHeader('Content-Disposition', `attachment; filename="Donor-Koi-${certificateNumber}.pdf"`)
       .setHeader('Cache-Control', 'private, no-store')
       .setHeader('X-Content-Type-Options', 'nosniff')
       .send(artifact)
