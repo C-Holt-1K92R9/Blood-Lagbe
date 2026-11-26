@@ -6,6 +6,7 @@ import { useAuth } from '../lib/session.jsx'
 
 const LINKS = [
   { label: 'Find blood', to: '/find' },
+  { label: 'Honorary Donors', to: '/honorary-donors' },
   { label: 'Emergency board', to: '/emergency' },
   { label: 'Contact', to: '/contact' },
   { label: 'Become a donor', to: '/register' },
@@ -57,7 +58,7 @@ export default function Nav() {
   }
 
   const linkClass = ({ isActive }) =>
-    `title-4 rounded-lg px-3 py-2 transition-colors duration-300 ease-out ${
+    `title-4 rounded-lg px-2 py-2 transition-colors duration-300 ease-out xl:px-3 ${
       isActive ? 'text-strong bg-lifted' : 'text-mute hover:text-strong'
     }`
 
@@ -85,7 +86,7 @@ export default function Nav() {
             </Link>
           </div>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
             {LINKS.map((link) => (
               <NavLink key={link.to} to={link.to} className={linkClass}>
                 {link.label}
@@ -130,7 +131,7 @@ export default function Nav() {
 
             <Link
               to="/find"
-              className="button-sm hidden items-center rounded-xl bg-brand-solid px-4 py-2 text-onbrand transition-all duration-300 ease-out hover:bg-brand-solid-hover active:scale-[0.98] lg:inline-flex"
+              className="button-sm hidden items-center rounded-xl bg-brand-solid px-4 py-2 text-onbrand transition-all duration-300 ease-out hover:bg-brand-solid-hover active:scale-[0.98] xl:inline-flex"
             >
               Find blood now
             </Link>
@@ -141,7 +142,7 @@ export default function Nav() {
               aria-expanded={open}
               aria-controls="mobile-menu"
               aria-label={open ? 'Close menu' : 'Open menu'}
-              className="relative flex h-9 w-9 flex-col items-center justify-center gap-[5px] overflow-hidden rounded-lg text-strong transition-colors duration-300 hover:bg-lifted md:hidden"
+              className="relative flex h-9 w-9 flex-col items-center justify-center gap-[5px] overflow-hidden rounded-lg text-strong transition-colors duration-300 hover:bg-lifted lg:hidden"
             >
               <span
                 className={`absolute transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
@@ -167,7 +168,7 @@ export default function Nav() {
         {open && (
           <div
             id="mobile-menu"
-            className="fixed inset-x-0 top-16 z-40 flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-canvas pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden"
+            className="fixed inset-x-0 top-16 z-40 flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-canvas pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
           >
             <nav className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-6" aria-label="Menu">
               {LINKS.map((link, i) => {
